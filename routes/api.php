@@ -1,19 +1,22 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+// Importamos los controladores que creamos antes
+use App\Http\Controllers\Api\EstudianteController;
+use App\Http\Controllers\Api\MateriaController;
+use App\Http\Controllers\Api\InscripcionController;
+use App\Http\Controllers\Api\EvaluacionController;
 
-/*
-|--------------------------------------------------------------------------
-| API Routes
-|--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
-*/
+// Módulo de Estudiantes
+Route::apiResource('estudiantes', EstudianteController::class);
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+// Módulo de Materias
+Route::apiResource('materias', MateriaController::class);
+
+// Módulo de Inscripciones y Carga Académica
+Route::apiResource('inscripciones', InscripcionController::class);
+Route::get('inscripciones/carga-academica/{estudiante}/{periodo}', [InscripcionController::class, 'cargaAcademica']);
+
+// Módulo de Evaluaciones y Reportes
+Route::apiResource('evaluaciones', EvaluacionController::class);
+Route::get('evaluaciones/reporte/{estudiante}', [EvaluacionController::class, 'reporteAcademico']);

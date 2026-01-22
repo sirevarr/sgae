@@ -36,7 +36,7 @@ class EstudianteController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'cedula' => 'required|string|max:20|unique:estudiantes',
+            'cedula' => 'required|string|max:20',
             'nombres' => 'required|string|max:100',
             'apellidos' => 'required|string|max:100',
             'genero' => 'required|in:M,F',

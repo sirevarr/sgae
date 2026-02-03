@@ -26,6 +26,7 @@ class MateriaController extends Controller
             'codigo_materia' => 'required|string|max:20|unique:materias',
             'nombre' => 'required|string|max:150',
             'creditos' => 'required|integer|min:1',
+            'descripcion' => 'nullable|string',
             'estado' => 'required|in:activa,inactiva'
         ]);
 
@@ -37,5 +38,41 @@ class MateriaController extends Controller
         return response()->json(['success' => true, 'data' => $materia], 201);
     }
     
-    // Aquí puedes añadir update() y destroy() siguiendo la misma lógica
+        // Actualizar una materia
+    public function update(Request $request, $id)
+    {
+        $materia = Materia::find($id);
+
+        if (!$materia) {
+            return response()->json(['success' => false, 'message' => 'Materia no encontrada'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'nombre'   => 'required|string|max:150',
+            'creditos' => 'required|integer|min:1',
+            'estado'   => 'required|in:activa,inactiva'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
+
+        $materia->update($request->all());
+
+        return response()->json(['success' => true, 'data' => $materia]);
+    }
+
+    // Eliminar una materia
+    public function destroy($id)
+    {
+        $materia = Materia::find($id);
+
+        if (!$materia) {
+            return response()->json(['success' => false, 'message' => 'Materia no encontrada'], 404);
+        }
+
+        $materia->delete();
+
+        return response()->json(['success' => true, 'message' => 'Materia eliminada']);
+    }
 }

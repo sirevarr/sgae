@@ -3,47 +3,39 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Materia;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class MateriaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $buscar = $request->query('buscar');
+        $materias = Materia::when($buscar, function ($query, $buscar) {
+            return $query->where('nombre', 'like', "%{$buscar}%")
+                         ->orWhere('codigo_materia', 'like', "%{$buscar}%");
+        })->get();
+
+        return response()->json(['success' => true, 'data' => $materias]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
-    }
+        $validator = Validator::make($request->all(), [
+            'codigo_materia' => 'required|string|max:20|unique:materias',
+            'nombre' => 'required|string|max:150',
+            'creditos' => 'required|integer|min:1',
+            'estado' => 'required|in:activa,inactiva'
+        ]);
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
+        }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
+        $materia = Materia::create($request->all());
+        return response()->json(['success' => true, 'data' => $materia], 201);
     }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
-    }
+    
+    // Aquí puedes añadir update() y destroy() siguiendo la misma lógica
 }

@@ -16,7 +16,8 @@ return new class extends Migration
         $table->decimal('nota_final', 5, 2)->nullable();
         
         // Cambia el 'storedAs' por un decimal simple
-        $table->decimal('promedio', 5, 2)->nullable(); 
+        $table->decimal('promedio', 5, 2)->nullable();
+        $table->string('estado', 20)->nullable(); // <--- Esta es la que falta 
         
         $table->date('fecha')->useCurrent();
         $table->text('observaciones')->nullable();

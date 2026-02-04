@@ -23,7 +23,8 @@ Route::get('inscripciones/carga-academica/{estudiante}/{periodo}', [InscripcionC
 Route::apiResource('inscripciones', InscripcionController::class);
 
 
-// --- Módulo de Evaluaciones y Reportes ---
-// Nota: Las rutas específicas van ANTES del apiResource
+// Rutas de Evaluación
 Route::get('evaluaciones/reporte/{estudiante}', [EvaluacionController::class, 'reporteAcademico']);
+Route::get('evaluaciones/inscripciones-alumno/{estudiante}', [EvaluacionController::class, 'inscripcionesPorEstudiante']);
+
 Route::apiResource('evaluaciones', EvaluacionController::class);

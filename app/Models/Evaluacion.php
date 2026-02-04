@@ -18,7 +18,8 @@ class Evaluacion extends Model
         'nota_final',
         'promedio',
         'estado',
-        'fecha' // <--- Añade esto
+        'fecha',
+        'observaciones' // <--- Añadir este campo
     ];
 
     // Relación con Inscripción

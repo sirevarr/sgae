@@ -10,13 +10,15 @@ class Estudiante extends Model
     use HasFactory;
 
     protected $fillable = [
-        'cedula',           
-        'nombres',
-        'apellidos',
-        'genero',
-        'fecha_nacimiento',
-        'email',
-        'telefono',
+        'cedula', 
+        'nombres', 
+        'apellidos', 
+        'genero', 
+        'fecha_nacimiento', 
+        'lugar_nacimiento', // <--- Añadir
+        'direccion',        // <--- Añadir
+        'email', 
+        'telefono',         // <--- Añadir
         'estado'
     ];
 

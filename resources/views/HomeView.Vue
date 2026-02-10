@@ -1,0 +1,1 @@
+<template><h1>Bienvenido al SGAE</h1></template>

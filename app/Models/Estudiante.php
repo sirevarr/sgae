@@ -15,11 +15,13 @@ class Estudiante extends Model
         'apellidos', 
         'genero', 
         'fecha_nacimiento', 
-        'lugar_nacimiento', // <--- Añadir
-        'direccion',        // <--- Añadir
+        'lugar_nacimiento', 
+        'direccion', 
         'email', 
-        'telefono',         // <--- Añadir
-        'estado'
+        'telefono', 
+        'estado',
+        'grado',   // <--- AGREGAR ESTE
+        'seccion'  // <--- AGREGAR ESTE
     ];
 
     protected $casts = [

@@ -7,90 +7,132 @@ use App\Models\Inscripcion;
 use App\Models\Estudiante;
 use App\Models\Materia;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class InscripcionController extends Controller
 {
     public function index()
     {
-        // Cargamos las relaciones para ver nombres de alumnos y materias en la tabla
-        $inscripciones = Inscripcion::with(['estudiante', 'materia'])->get();
+        $inscripciones = Inscripcion::with(['estudiante', 'materia'])->latest()->get();
         return response()->json(['success' => true, 'data' => $inscripciones]);
     }
 
     public function store(Request $request)
     {
-        // 1. Validación básica de campos
         $request->validate([
-            'estudiante_id' => 'required|exists:estudiantes,id',
-            'materia_id'    => 'required|exists:materias,id',
-            'periodo'       => 'required|string',
-            'seccion'       => 'required|string',
+            'estudiante_id'     => 'required|exists:estudiantes,id',
+            'materia_id'        => 'required|exists:materias,id',
+            'periodo'           => 'required|string',
+            'fecha_inscripcion' => 'required|date',
+            'estado'            => 'required|string',
         ]);
 
-        $estudianteId = $request->estudiante_id;
-        $periodo = $request->periodo;
+        $estudiante = Estudiante::findOrFail($request->estudiante_id);
+        
+        // Validación de duplicados
+        $existe = Inscripcion::where('estudiante_id', $request->estudiante_id)
+            ->where('materia_id', $request->materia_id)
+            ->where('periodo', $request->periodo)
+            ->exists();
 
-        // --- VALIDACIÓN 1: Choque de Horarios (Mismo Periodo y Sección) ---
-        // Verificamos si el alumno ya tiene una materia en esa sección durante ese periodo
-        $choque = \App\Models\Inscripcion::where('estudiante_id', $estudianteId)
-            ->where('periodo', $periodo)
-            ->where('seccion', $request->seccion)
-            ->first();
-
-        if ($choque) {
-            return response()->json([
-                'error' => "El estudiante ya tiene la materia '{$choque->materia->nombre}' inscrita en la sección {$request->seccion} para este periodo."
-            ], 422);
+        if ($existe) {
+            return response()->json(['error' => "Esta materia ya está inscrita para este periodo."], 422);
         }
 
-        // --- VALIDACIÓN 2: Límite de Créditos (Máximo 25) ---
-        // Sumamos los créditos de las materias ya inscritas en este periodo
-        $creditosActuales = \App\Models\Inscripcion::where('estudiante_id', $estudianteId)
-            ->where('periodo', $periodo)
+        // Validación de créditos
+        $creditosActuales = Inscripcion::where('estudiante_id', $request->estudiante_id)
+            ->where('periodo', $request->periodo)
             ->with('materia')
             ->get()
-            ->sum(function ($inscripcion) {
-                return $inscripcion->materia->creditos;
-            });
+            ->sum(fn($ins) => $ins->materia->creditos ?? 0);
 
-        $nuevaMateria = \App\Models\Materia::find($request->materia_id);
-        
-        if (($creditosActuales + $nuevaMateria->creditos) > 25) {
-            return response()->json([
-                'error' => "Límite de créditos excedido. El alumno ya tiene {$creditosActuales} créditos y esta materia suma {$nuevaMateria->creditos} más (Máximo permitido: 25)."
-            ], 422);
+        $nuevaMateria = Materia::find($request->materia_id);
+        if (($creditosActuales + ($nuevaMateria->creditos ?? 0)) > 25) {
+            return response()->json(['error' => "Límite de créditos excedido ({$creditosActuales}/25)."], 422);
         }
 
-        // --- SI PASA LAS VALIDACIONES, SE GUARDA ---
-        $inscripcion = \App\Models\Inscripcion::create($request->all());
-        
-        return response()->json([
-            'message' => 'Inscripción realizada con éxito',
-            'data' => $inscripcion->load(['estudiante', 'materia'])
-        ], 201);
-    }
+        // Guardado manual para asegurar tipos
+        $inscripcion = new Inscripcion();
+        $inscripcion->estudiante_id = $request->estudiante_id;
+        $inscripcion->materia_id    = $request->materia_id;
+        $inscripcion->periodo       = $request->periodo;
+        $inscripcion->fecha_inscripcion = $request->fecha_inscripcion;
+        $inscripcion->estado        = strtolower(trim($request->estado));
+        $inscripcion->save();
 
-    public function getFormData()
-    {
-        try {
-            // Usamos all() primero para ver si funciona, luego filtramos
-            $estudiantes = \App\Models\Estudiante::where('estado', 'activo')->get();
-            $materias = \App\Models\Materia::where('estado', 'activa')->get();
-            
-            return response()->json([
-                'estudiantes' => $estudiantes,
-                'materias' => $materias
-            ]);
-        } catch (\Exception $e) {
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
+        return response()->json(['message' => 'Creado con éxito', 'data' => $inscripcion], 201);
     }
 
     public function update(Request $request, $id)
     {
+        // 1. Buscamos el registro
         $inscripcion = Inscripcion::findOrFail($id);
-        $inscripcion->update($request->all());
-        return response()->json($inscripcion);
+        
+        // 2. Validamos (importante para que Laravel reconozca los tipos)
+        $request->validate([
+            'estudiante_id'     => 'required|numeric',
+            'materia_id'        => 'required|numeric',
+            'periodo'           => 'required|string',
+            'fecha_inscripcion' => 'required|date',
+            'estado'            => 'required|string',
+        ]);
+
+        // 3. ASIGNACIÓN EXPLÍCITA (Solución al error 1265)
+        // Forzamos el valor a ser un string limpio.
+        $inscripcion->estudiante_id     = (int) $request->estudiante_id;
+        $inscripcion->materia_id        = (int) $request->materia_id;
+        $inscripcion->periodo           = (string) $request->periodo;
+        $inscripcion->fecha_inscripcion = $request->fecha_inscripcion;
+        
+        // Saneamiento de 'estado'
+        $valorEstado = strtolower(trim($request->estado));
+        // Si el valor no es 'activa', por defecto será 'inactiva' para cumplir con ENUM si existe
+        $inscripcion->estado = ($valorEstado === 'activa') ? 'activa' : 'inactiva';
+
+        // 4. Guardar usando save() en lugar de update()
+        $inscripcion->save();
+
+        return response()->json([
+            'success' => true,
+            'data' => $inscripcion->load(['estudiante', 'materia'])
+        ]);
+    }
+
+    public function destroy($id)
+    {
+        Inscripcion::destroy($id);
+        return response()->json(['message' => 'Eliminado']);
+    }
+
+    public function getFormData()
+    {
+        return response()->json([
+            'estudiantes' => Estudiante::where('estado', 'activo')->get(),
+            'materias' => Materia::where('estado', 'activa')->get()
+        ]);
+    }
+
+    public function reportePDF(Request $request)
+    {
+        $grado = $request->query('grado');
+        $seccion = $request->query('seccion');
+
+        $query = Inscripcion::with(['estudiante', 'materia']);
+
+        if ($grado) {
+            $query->whereHas('estudiante', fn($q) => $q->where('grado', $grado));
+        }
+        if ($seccion) {
+            $query->whereHas('estudiante', fn($q) => $q->where('seccion', $seccion));
+        }
+
+        $data = [
+            'titulo' => 'Reporte de Inscripciones',
+            'fecha' => date('d/m/Y'),
+            'inscripciones' => $query->get(),
+            'filtros' => ['grado' => $grado ?? 'Todos', 'seccion' => $seccion ?? 'Todas']
+        ];
+
+        return Pdf::loadView('pdf.reporte_inscripciones', $data)->stream("Reporte.pdf");
     }
 }

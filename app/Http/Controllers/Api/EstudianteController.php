@@ -14,14 +14,24 @@ class EstudianteController extends Controller
     {
         $query = Estudiante::query();
 
-        // Búsqueda avanzada
-        if ($request->has('buscar')) {
-            $query->buscar($request->buscar);
+        // Búsqueda avanzada (Cédula, Nombre o Apellido)
+        if ($request->has('buscar') && $request->buscar != '') {
+            $buscar = $request->buscar;
+            $query->where(function($q) use ($buscar) {
+                $q->where('cedula', 'like', "%$buscar%")
+                  ->orWhere('nombres', 'like', "%$buscar%")
+                  ->orWhere('apellidos', 'like', "%$buscar%");
+            });
         }
 
         // Filtro por estado
-        if ($request->has('estado')) {
+        if ($request->has('estado') && $request->estado != '') {
             $query->where('estado', $request->estado);
+        }
+
+        // Filtro por grado
+        if ($request->has('grado') && $request->grado != '') {
+            $query->where('grado', $request->grado);
         }
 
         $estudiantes = $query->orderBy('apellidos')->get();
@@ -36,14 +46,15 @@ class EstudianteController extends Controller
     public function store(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'cedula' => 'required|string|max:20',
+            'cedula' => 'required|string|max:20|unique:estudiantes',
             'nombres' => 'required|string|max:100',
             'apellidos' => 'required|string|max:100',
             'genero' => 'required|in:M,F',
             'fecha_nacimiento' => 'required|date',
+            'grado' => 'required|string',
+            'seccion' => 'required|string',
             'email' => 'nullable|email|unique:estudiantes',
             'telefono' => 'nullable|string|max:20',
-            // Los demás campos son opcionales
         ]);
 
         if ($validator->fails()) {
@@ -53,10 +64,10 @@ class EstudianteController extends Controller
             ], 422);
         }
 
-        // Agregar estado por defecto si no viene
         $data = $request->all();
+        // Normalizamos el estado para que coincida con la vista
         if (!isset($data['estado'])) {
-            $data['estado'] = 'activo';
+            $data['estado'] = 'Activo';
         }
 
         $estudiante = Estudiante::create($data);
@@ -71,8 +82,9 @@ class EstudianteController extends Controller
     // GET /api/estudiantes/{id}
     public function show($id)
     {
+        // Traemos al estudiante con sus relaciones para ver su historial
         $estudiante = Estudiante::with(['inscripciones.materia', 'inscripciones.evaluacion'])
-                                ->find($id);
+            ->find($id);
 
         if (!$estudiante) {
             return response()->json([
@@ -104,6 +116,8 @@ class EstudianteController extends Controller
             'nombres' => 'required|string|max:100',
             'apellidos' => 'required|string|max:100',
             'genero' => 'required|in:M,F',
+            'grado' => 'required|string',
+            'seccion' => 'required|string',
             'fecha_nacimiento' => 'required|date',
             'email' => 'nullable|email|unique:estudiantes,email,' . $id,
         ]);
@@ -127,20 +141,30 @@ class EstudianteController extends Controller
     // DELETE /api/estudiantes/{id}
     public function destroy($id)
     {
-        $estudiante = Estudiante::find($id);
+        try {
+            $estudiante = Estudiante::find($id);
 
-        if (!$estudiante) {
+            if (!$estudiante) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Estudiante no encontrado'
+                ], 404);
+            }
+
+            // Intentamos eliminar
+            $estudiante->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Estudiante eliminado exitosamente'
+            ]);
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Este error ocurre si el estudiante tiene notas o inscripciones (FK Constraint)
             return response()->json([
                 'success' => false,
-                'message' => 'Estudiante no encontrado'
-            ], 404);
+                'message' => 'No se puede eliminar: El estudiante tiene registros de inscripciones o notas vinculadas.'
+            ], 422);
         }
-
-        $estudiante->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Estudiante eliminado exitosamente'
-        ]);
     }
 }

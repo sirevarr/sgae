@@ -4,16 +4,16 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Barryvdh\DomPDF\Facade\Pdf; 
+
+use App\Models\Estudiante;
+use App\Models\Materia;
+use App\Models\Evaluacion;
 
 /*
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
-|
 */
 
 Route::get('/', function () {
@@ -25,11 +25,67 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// RUTAS PROTEGIDAS POR LOGIN
+Route::middleware(['auth', 'verified'])->group(function () {
+    
+    // 0. Dashboard Principal
+    Route::get('/dashboard', function () {
+        $estudiantesCount = Estudiante::count();
+        $materiasCount = Materia::count();
+        $promedioGlobal = Evaluacion::avg('promedio') ?? 0;
+        
+        $totalNotas = Evaluacion::count();
+        $aprobados = Evaluacion::where('estado', 'aprobado')->count();
+        $eficiencia = $totalNotas > 0 ? ($aprobados / $totalNotas) * 100 : 0;
 
-Route::middleware('auth')->group(function () {
+        return Inertia::render('Dashboard', [
+            'stats' => [
+                'estudiantesCount' => $estudiantesCount,
+                'materiasCount' => $materiasCount,
+                'promedioGlobal' => number_format($promedioGlobal, 2),
+                'porcentajeAprobados' => round($eficiencia)
+            ]
+        ]);
+    })->name('dashboard');
+
+    // 1 a 4. Módulos de Gestión (Sin cambios)
+    Route::get('/estudiantes', fn() => Inertia::render('Estudiantes/Index'))->name('estudiantes.index');
+    Route::get('/evaluaciones', fn() => Inertia::render('Evaluaciones/Index'))->name('evaluaciones.index');
+    Route::get('/materias', fn() => Inertia::render('Materias/Index'))->name('materias.index');
+    Route::get('/inscripciones', fn() => Inertia::render('Inscripciones/Index'))->name('inscripciones.index');
+
+    // 5. REPORTE PDF MEJORADO (Agrupado)
+    Route::get('/reporte-general', function () {
+        // Obtenemos evaluaciones con relaciones. 
+        // Agrupamos por grado y seccion (si ya existen) o por Materia
+        $evaluacionesRaw = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->get();
+        
+        // Esta lógica agrupa por grado y sección en el PDF
+        $reporteAgrupado = $evaluacionesRaw->groupBy(function($item) {
+            // Si el campo grado no existe aún, se agrupará bajo "Sin Asignar"
+            $grado = $item->inscripcion->estudiante->grado ?? 'Grado no definido';
+            $seccion = $item->inscripcion->estudiante->seccion ?? 'S/S';
+            return $grado . ' - Sección: ' . $seccion;
+        });
+
+        $stats = [
+            'estudiantesCount' => Estudiante::count(),
+            'promedioGlobal'   => number_format(Evaluacion::avg('promedio') ?? 0, 2),
+            'porcentajeAprobados' => Evaluacion::count() > 0 
+                ? round((Evaluacion::where('estado', 'aprobado')->count() / Evaluacion::count()) * 100) 
+                : 0
+        ];
+
+        $pdf = Pdf::loadView('pdf.reporte_general', [
+            'reporteAgrupado' => $reporteAgrupado, // Enviamos los datos agrupados
+            'stats' => $stats,
+            'fecha' => date('d/m/Y H:i')
+        ]);
+
+        return $pdf->stream('Reporte_Academico_SGAE.pdf');
+    })->name('reporte.general');
+
+    // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

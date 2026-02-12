@@ -15,7 +15,7 @@ return new class extends Migration
             // Relación con Materias
             $table->foreignId('materia_id')->constrained('materias')->onDelete('cascade');
             
-            $table->string('periodo', 20); // Ejemplo: "2026-1"
+            $table->string('periodo', 20); 
             $table->string('seccion', 50); 
             $table->date('fecha_inscripcion');
             $table->enum('estado', ['activa', 'retirada'])->default('activa');

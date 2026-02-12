@@ -40,6 +40,7 @@ const busqueda = ref('');
 const filtroEstado = ref(''); 
 const filtroGrado = ref(''); 
 const filtroSeccion = ref('');
+const filtroPeriodo = ref('');
 
 const form = ref({
     estudiante_id: '', 
@@ -59,7 +60,10 @@ const cargarDatos = async () => {
         ]);
         inscripciones.value = resIns.data.data || resIns.data;
         estudiantes.value = resEst.data.data || resEst.data;
-        materias.value = resMat.data.data || resMat.data;
+        // Filtrar solo materias ACTIVAS
+            materias.value = (resMat.data.data || resMat.data).filter(m => 
+                String(m.estado).toLowerCase().startsWith('act')
+            );
     } catch (error) {
         console.error("Error al cargar datos:", error);
     }
@@ -67,7 +71,10 @@ const cargarDatos = async () => {
 
 // --- LÓGICA DE FILTRADO ---
 const inscripcionesFiltradas = computed(() => {
-    return inscripciones.value.filter(ins => {
+        return inscripciones.value.filter(ins => {
+            // Excluir inscripciones cuya materia esté inactiva (defensa doble en frontend)
+            const materiaActiva = String(ins.materia?.estado || '').toLowerCase().startsWith('act');
+            if (!materiaActiva) return false;
         const buscar = busqueda.value.toLowerCase().trim();
         const est = ins.estudiante;
         
@@ -75,6 +82,7 @@ const inscripcionesFiltradas = computed(() => {
         const coincideTexto = info.includes(buscar);
         const coincideGrado = filtroGrado.value === '' || est?.grado === filtroGrado.value;
         const coincideSeccion = filtroSeccion.value === '' || est?.seccion === filtroSeccion.value;
+        const coincidePeriodo = filtroPeriodo.value === '' || (ins.periodo || '') === filtroPeriodo.value;
         
         let coincideEstado = true;
         if (filtroEstado.value !== '') {
@@ -83,8 +91,19 @@ const inscripcionesFiltradas = computed(() => {
             coincideEstado = estadoDb.startsWith(estadoBusqueda.substring(0,4));
         }
 
-        return coincideTexto && coincideGrado && coincideSeccion && coincideEstado;
-    });
+        return coincideTexto && coincideGrado && coincideSeccion && coincideEstado && coincidePeriodo;
+    }).sort((a, b) => a.estudiante.apellidos.localeCompare(b.estudiante.apellidos));
+});
+
+// Periodos disponibles a partir de las inscripciones
+const periodosInscripciones = computed(() => {
+    const set = new Set((inscripciones.value || []).map(i => i.periodo).filter(Boolean));
+    return Array.from(set).sort();
+});
+
+// Materias filtradas según estudiante seleccionado (solo activas)
+const materiasDisponibles = computed(() => {
+    return materias.value.filter(m => String(m.estado).toLowerCase().startsWith('act'));
 });
 
 // --- ACCIONES ---
@@ -109,7 +128,7 @@ const prepararEdicion = (ins) => {
         materia_id: ins.materia_id,
         periodo: ins.periodo,
         fecha_inscripcion: fechaLimpia,
-        estado: String(ins.estado).toLowerCase().includes('acti') ? 'activa' : 'inactiva'
+            estado: String(ins.estado).toLowerCase().startsWith('act') ? 'activa' : 'inactiva'
     };
     mostrarModal.value = true;
 };
@@ -126,23 +145,31 @@ const guardar = async () => {
 
         if (editandoId.value) {
             await axios.put(`/api/inscripciones/${editandoId.value}`, payload);
+            alert("Inscripción actualizada exitosamente");
         } else {
             await axios.post('/api/inscripciones', payload);
+            alert("Inscripción registrada exitosamente");
         }
         
         await cargarDatos();
         mostrarModal.value = false;
-        alert("¡Procesado con éxito!");
     } catch (e) {
-        console.error(e);
-        alert("Error al guardar.");
+        const msg = e.response?.data?.error || 
+                   e.response?.data?.message || 
+                   "Error al procesar la solicitud";
+        alert(msg);
     }
 };
 
 const eliminar = async (id) => {
-    if (confirm('¿Desea eliminar este registro?')) {
-        await axios.delete(`/api/inscripciones/${id}`);
-        cargarDatos();
+    if (confirm('¿Desea retirar esta inscripción?')) {
+        try {
+            await axios.delete(`/api/inscripciones/${id}`);
+            await cargarDatos();
+            alert("Inscripción retirada correctamente");
+        } catch (error) {
+            alert("Error al retirar la inscripción");
+        }
     }
 };
 
@@ -187,6 +214,10 @@ onMounted(cargarDatos);
                             <option value="activa">Activa</option>
                             <option value="inactiva">Inactiva</option>
                         </select>
+                        <select v-model="filtroPeriodo" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
+                            <option value="">Todos los períodos</option>
+                            <option v-for="p in periodosInscripciones" :key="p" :value="p">{{ p }}</option>
+                        </select>
                     </div>
 
                     <div class="overflow-x-auto rounded-xl border border-sky-50">
@@ -205,15 +236,16 @@ onMounted(cargarDatos);
                                 <tr v-for="ins in inscripcionesFiltradas" :key="ins.id" class="hover:bg-sky-50/40 transition">
                                     <td class="px-6 py-4">
                                         <div class="text-[10px] font-black text-sky-400 font-mono">V-{{ ins.estudiante?.cedula }}</div>
-                                        <div class="font-bold text-sky-900 uppercase text-sm">{{ ins.estudiante?.nombres }} {{ ins.estudiante?.apellidos }}</div>
+                                            <div class="font-bold text-sky-900 text-sm">{{ ins.estudiante?.nombres }} {{ ins.estudiante?.apellidos }}</div>
                                         <div class="mt-1">
                                             <span class="bg-sky-100 text-sky-600 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-sky-200">
-                                                {{ ins.estudiante?.grado }} - SECC: {{ ins.estudiante?.seccion }}
+                                                {{ ins.grado || ins.estudiante?.grado }} - SECC: {{ ins.seccion || ins.estudiante?.seccion }}
                                             </span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4">
-                                        <div class="text-xs font-bold text-gray-600 uppercase">{{ ins.materia?.nombre }}</div>
+                                            <div class="text-xs font-bold text-gray-600">{{ ins.materia?.codigo_materia }}</div>
+                                        <div class="text-xs font-bold text-gray-600">{{ ins.materia?.nombre }}</div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <div class="text-xs font-black text-sky-500">{{ ins.periodo }}</div>
@@ -232,8 +264,8 @@ onMounted(cargarDatos);
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
-                                        <span :class="String(ins.estado).toLowerCase().includes('acti') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border border-current">
-                                            {{ ins.estado }}
+                                        <span :class="(String(ins.materia?.estado || ins.estado || '').toLowerCase().startsWith('act') && String(ins.estado || '').toLowerCase().startsWith('act')) ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
+                                            {{ (ins.estado || '').toString().toUpperCase() }}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right whitespace-nowrap">
@@ -256,18 +288,20 @@ onMounted(cargarDatos);
                 <form @submit.prevent="guardar" class="space-y-4">
                     <div>
                         <label class="text-[10px] font-black text-sky-400 uppercase">Estudiante *</label>
-                        <select v-model="form.estudiante_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required>
+                        <select v-model="form.estudiante_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required :disabled="!!editandoId">
                             <option value="">Seleccione Estudiante</option>
-                            <option v-for="e in estudiantes" :key="e.id" :value="e.id">
+                            <option v-for="e in estudiantes.filter(s => String(s.estado).toLowerCase().includes('acti'))" :key="e.id" :value="e.id">
                                 [{{ e.grado }} - {{ e.seccion }}] {{ e.apellidos }}, {{ e.nombres }}
                             </option>
                         </select>
                     </div>
                     <div>
                         <label class="text-[10px] font-black text-sky-400 uppercase">Materia *</label>
-                        <select v-model="form.materia_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required>
+                        <select v-model="form.materia_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required :disabled="!!editandoId">
                             <option value="">Seleccione Materia</option>
-                            <option v-for="m in materias" :key="m.id" :value="m.id">{{ m.nombre }}</option>
+                            <option v-for="m in materiasDisponibles" :key="m.id" :value="m.id">
+                                [{{ m.codigo_materia }}] {{ m.nombre }}
+                            </option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-4">

@@ -65,7 +65,7 @@ class EstudianteController extends Controller
         }
 
         $data = $request->all();
-        // Normalizamos el estado para que coincida con la vista
+        // Normaliza el estado para que coincida con la vista
         if (!isset($data['estado'])) {
             $data['estado'] = 'Activo';
         }
@@ -82,7 +82,7 @@ class EstudianteController extends Controller
     // GET /api/estudiantes/{id}
     public function show($id)
     {
-        // Traemos al estudiante con sus relaciones para ver su historial
+        // Trae al estudiante con sus relaciones para ver su historial
         $estudiante = Estudiante::with(['inscripciones.materia', 'inscripciones.evaluacion'])
             ->find($id);
 
@@ -151,7 +151,7 @@ class EstudianteController extends Controller
                 ], 404);
             }
 
-            // Intentamos eliminar
+            // Intentar eliminar
             $estudiante->delete();
 
             return response()->json([

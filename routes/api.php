@@ -14,7 +14,6 @@ Route::apiResource('estudiantes', EstudianteController::class);
 Route::apiResource('materias', MateriaController::class);
 
 // --- Módulo de Inscripciones ---
-Route::get('inscripciones/pdf', [InscripcionController::class, 'reportePDF']); 
 Route::get('inscripciones/form-data', [InscripcionController::class, 'getFormData']);
 Route::get('inscripciones/carga-academica/{estudiante}/{periodo}', [InscripcionController::class, 'cargaAcademica']);
 Route::apiResource('inscripciones', InscripcionController::class);

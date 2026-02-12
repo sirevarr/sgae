@@ -14,6 +14,8 @@ const form = ref({
     codigo_materia: '', nombre: '', descripcion: '', creditos: 1, estado: 'activa'
 });
 
+const errores = ref({});
+
 const formatearFechaFull = (fecha) => {
     if (!fecha) return 'N/A';
     const d = new Date(fecha);
@@ -41,12 +43,31 @@ const materiasFiltradas = computed(() => {
         const estadoFiltro = String(filtroEstado.value).toLowerCase().substring(0, 4);
         
         return (cumpleNombre || cumpleCodigo) && (estadoDb === estadoFiltro);
-    });
+    }).sort((a, b) => a.nombre.localeCompare(b.nombre));
 });
+
+const validarFormulario = () => {
+    errores.value = {};
+
+    if (!form.value.codigo_materia) {
+        errores.value.codigo_materia = 'El código es obligatorio';
+    }
+
+    if (!form.value.nombre) {
+        errores.value.nombre = 'El nombre es obligatorio';
+    }
+
+    if (!form.value.creditos || form.value.creditos < 1) {
+        errores.value.creditos = 'Los créditos deben ser mayor a 0';
+    }
+
+    return Object.keys(errores.value).length === 0;
+};
 
 const abrirModal = () => {
     editandoId.value = null;
     form.value = { codigo_materia: '', nombre: '', descripcion: '', creditos: 1, estado: 'activa' };
+    errores.value = {};
     mostrarModal.value = true;
 };
 
@@ -57,10 +78,15 @@ const prepararEdicion = (mat) => {
     const estadoNormalizado = st.includes('inac') ? 'inactiva' : 'activa';
 
     form.value = { ...mat, estado: estadoNormalizado };
+    errores.value = {};
     mostrarModal.value = true;
 };
 
 const guardar = async () => {
+    if (!validarFormulario()) {
+        return;
+    }
+
     try {
         const payload = {
             ...form.value,
@@ -68,21 +94,32 @@ const guardar = async () => {
             estado: form.value.estado.toLowerCase().trim()
         };
 
-        if (editandoId.value) await axios.put(`/api/materias/${editandoId.value}`, payload);
-        else await axios.post('/api/materias', payload);
+        if (editandoId.value) {
+            await axios.put(`/api/materias/${editandoId.value}`, payload);
+        } else {
+            await axios.post('/api/materias', payload);
+        }
         
         await cargarMaterias();
         mostrarModal.value = false;
-        alert("¡Materia guardada!");
+        alert("Materia guardada exitosamente");
     } catch (e) {
-        alert("Error de validación. Revisa que el código sea único.");
+        const msg = e.response?.data?.errors?.codigo_materia?.[0] || 
+                   e.response?.data?.message || 
+                   "Error: Revisa que el código sea único";
+        alert(msg);
     }
 };
 
 const eliminar = async (id) => {
-    if (confirm('¿Eliminar materia?')) {
-        await axios.delete(`/api/materias/${id}`);
-        cargarMaterias();
+    if (confirm('¿Está seguro de eliminar esta materia?')) {
+        try {
+            await axios.delete(`/api/materias/${id}`);
+            await cargarMaterias();
+            alert("Materia eliminada correctamente");
+        } catch (e) {
+            alert("Error al eliminar la materia");
+        }
     }
 };
 
@@ -120,6 +157,7 @@ onMounted(cargarMaterias);
                                 <tr class="text-left text-[11px] font-black text-sky-700 uppercase tracking-widest">
                                     <th class="px-6 py-4">Materia / Cód.</th>
                                     <th class="px-6 py-4">Descripción</th>
+                                    <th class="px-6 py-4">Créditos</th>
                                     <th class="px-6 py-4">Auditoría</th>
                                     <th class="px-6 py-4 text-center">Estado</th>
                                     <th class="px-6 py-4 text-right">Acciones</th>
@@ -129,14 +167,17 @@ onMounted(cargarMaterias);
                                 <tr v-for="mat in materiasFiltradas" :key="mat.id" class="hover:bg-sky-50/40 transition">
                                     <td class="px-6 py-4">
                                         <div class="text-xs font-black text-sky-400 font-mono">{{ mat.codigo_materia }}</div>
-                                        <div class="font-bold text-sky-900 uppercase text-sm">{{ mat.nombre }}</div>
-                                        <div class="text-[10px] text-gray-400 font-bold uppercase">{{ mat.creditos }} Créditos</div>
+                                        <div class="font-bold text-sky-900 text-sm">{{ mat.nombre }}</div>
                                     </td>
                                     
                                     <td class="px-6 py-4">
                                         <div class="max-w-[250px] text-xs text-gray-500 leading-relaxed italic">
-                                            {{ mat.descripcion || 'Sin descripción registrada.' }}
+                                            {{ mat.descripcion || '-' }}
                                         </div>
+                                    </td>
+
+                                    <td class="px-6 py-4 text-center font-bold text-sky-600">
+                                        {{ mat.creditos }}
                                     </td>
 
                                     <td class="px-6 py-4 whitespace-nowrap">
@@ -153,8 +194,8 @@ onMounted(cargarMaterias);
                                     </td>
 
                                     <td class="px-6 py-4 text-center">
-                                        <span :class="String(mat.estado).toLowerCase().includes('acti') ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
-                                            {{ mat.estado }}
+                                        <span :class="String(mat.estado || '').toLowerCase().startsWith('act') ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
+                                            {{ (mat.estado || '').toString().toUpperCase() }}
                                         </span>
                                     </td>
 
@@ -174,13 +215,23 @@ onMounted(cargarMaterias);
             <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-sky-100">
                 <h3 class="text-2xl font-black text-sky-500 uppercase mb-6 text-center">Datos de Materia</h3>
                 <form @submit.prevent="guardar" class="space-y-4">
-                    <input v-model="form.codigo_materia" type="text" placeholder="Ej: MAT-01" class="w-full rounded-xl border-sky-100 bg-sky-50/30 uppercase font-bold" required />
-                    <input v-model="form.nombre" type="text" placeholder="Ej: Matemática" class="w-full rounded-xl border-sky-100 bg-sky-50/30 uppercase font-bold" required />
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Código *</label>
+                        <input v-model="form.codigo_materia" type="text" placeholder="Ej: MAT-01" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" :disabled="!!editandoId" />
+                        <span v-if="errores.codigo_materia" class="text-[9px] text-red-500">{{ errores.codigo_materia }}</span>
+                    </div>
+                    
+                    <div class="space-y-1">
+                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Nombre *</label>
+                        <input v-model="form.nombre" type="text" placeholder="Ej: Matemática" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" />
+                        <span v-if="errores.nombre" class="text-[9px] text-red-500">{{ errores.nombre }}</span>
+                    </div>
                     
                     <div class="grid grid-cols-2 gap-4">
                         <div class="flex flex-col gap-1">
-                            <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Créditos</label>
-                            <input v-model="form.creditos" type="number" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" />
+                            <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Créditos *</label>
+                            <input v-model.number="form.creditos" type="number" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" />
+                            <span v-if="errores.creditos" class="text-[9px] text-red-500">{{ errores.creditos }}</span>
                         </div>
                         <div class="flex flex-col gap-1">
                             <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Estado</label>
@@ -192,7 +243,7 @@ onMounted(cargarMaterias);
                     </div>
 
                     <div class="flex flex-col gap-1">
-                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Descripción de la materia</label>
+                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Descripción</label>
                         <textarea v-model="form.descripcion" rows="3" placeholder="Opcional..." class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-medium"></textarea>
                     </div>
 

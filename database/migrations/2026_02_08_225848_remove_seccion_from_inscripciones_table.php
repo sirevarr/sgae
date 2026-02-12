@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('inscripciones', function (Blueprint $table) {
-            // Esto elimina la columna de la base de datos
+            // elimina la columna de la base de datos
             $table->dropColumn('seccion');
         });
     }
@@ -17,7 +17,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('inscripciones', function (Blueprint $table) {
-            // Esto es por si te arrepientes y quieres revertir el cambio
+            // revertir el cambio
             $table->string('seccion')->nullable();
         });
     }

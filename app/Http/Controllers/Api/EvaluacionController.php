@@ -13,9 +13,36 @@ class EvaluacionController extends Controller
 {
     public function index()
     {
-        $evaluaciones = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])
-            ->latest()
-            ->get();
+        $grado = request()->query('grado');
+        $seccion = request()->query('seccion');
+        $estado = request()->query('estado');
+        $periodo = request()->query('periodo');
+
+        $query = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->latest();
+
+        if (!empty($grado)) {
+            $query->whereHas('inscripcion', function($q) use ($grado) {
+                $q->where('grado', $grado);
+            });
+        }
+
+        if (!empty($seccion)) {
+            $query->whereHas('inscripcion', function($q) use ($seccion) {
+                $q->where('seccion', $seccion);
+            });
+        }
+
+        if (!empty($periodo)) {
+            $query->whereHas('inscripcion', function($q) use ($periodo) {
+                $q->where('periodo', $periodo);
+            });
+        }
+
+        if (!empty($estado)) {
+            $query->where('estado', $estado);
+        }
+
+        $evaluaciones = $query->get();
 
         return response()->json([
             'success' => true,
@@ -42,12 +69,21 @@ class EvaluacionController extends Controller
             ], 422);
         }
 
+        // VALIDAR QUE LA INSCRIPCIÓN ESTÉ ACTIVA
+        $inscripcion = Inscripcion::find($request->inscripcion_id);
+        if ($inscripcion && strtolower($inscripcion->estado) !== 'activa') {
+            return response()->json([
+                'success' => false,
+                'error' => 'No se puede registrar evaluación para una inscripción inactiva.'
+            ], 422);
+        }
+
         $evaluacion = Evaluacion::create($request->all());
         $evaluacion->load(['inscripcion.estudiante', 'inscripcion.materia']);
 
         return response()->json([
             'success' => true,
-            'message' => 'Evaluación creada exitosamente',
+            'message' => 'Evaluación creada con éxito',
             'data' => $evaluacion
         ], 201);
     }
@@ -71,7 +107,7 @@ class EvaluacionController extends Controller
 
     public function update(Request $request, $id)
     {
-        // Usamos find() en lugar de findOrFail para personalizar la respuesta
+        // Usar find() en lugar de findOrFail para personalizar la respuesta
         $evaluacion = Evaluacion::find($id);
 
         if (!$evaluacion) {
@@ -102,7 +138,7 @@ class EvaluacionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Evaluación actualizada exitosamente',
+            'message' => 'Evaluación actualizada con éxito',
             'data' => $evaluacion->load(['inscripcion.estudiante', 'inscripcion.materia'])
         ]);
     }
@@ -112,12 +148,18 @@ class EvaluacionController extends Controller
         $evaluacion = Evaluacion::find($id);
 
         if (!$evaluacion) {
-            return response()->json(['success' => false, 'message' => 'No encontrada'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Evaluación no encontrada'
+            ], 404);
         }
 
         $evaluacion->delete();
 
-        return response()->json(['success' => true, 'message' => 'Eliminada']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Evaluación eliminada con éxito'
+        ]);
     }
 
     /**
@@ -128,18 +170,26 @@ class EvaluacionController extends Controller
         $grado = $request->query('grado');
         $seccion = $request->query('seccion');
         $estado = $request->query('estado');
+        $periodo = $request->query('periodo');
 
         $query = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia']);
 
+        // Filtrar por grado/sección/periodo tomando los valores congelados en la inscripción
         if (!empty($grado)) {
-            $query->whereHas('inscripcion.estudiante', function($q) use ($grado) {
+            $query->whereHas('inscripcion', function($q) use ($grado) {
                 $q->where('grado', $grado);
             });
         }
 
         if (!empty($seccion)) {
-            $query->whereHas('inscripcion.estudiante', function($q) use ($seccion) {
+            $query->whereHas('inscripcion', function($q) use ($seccion) {
                 $q->where('seccion', $seccion);
+            });
+        }
+
+        if (!empty($periodo)) {
+            $query->whereHas('inscripcion', function($q) use ($periodo) {
+                $q->where('periodo', $periodo);
             });
         }
 
@@ -156,6 +206,7 @@ class EvaluacionController extends Controller
             'filtros' => [
                 'grado' => $grado ?? 'Todos',
                 'seccion' => $seccion ?? 'Todas',
+                'periodo' => $periodo ?? 'Todos',
                 'estado' => $estado ?? 'Todos'
             ]
         ];
@@ -171,6 +222,7 @@ class EvaluacionController extends Controller
     {
         $inscripciones = Inscripcion::with(['materia', 'evaluacion'])
             ->where('estudiante_id', $estudianteId)
+            ->where('estado', 'activa') // INSCRIPCIONES ACTIVAS
             ->get();
 
         $materiasConCalificacion = $inscripciones->filter(fn($i) => $i->evaluacion !== null);
@@ -197,7 +249,7 @@ class EvaluacionController extends Controller
     {
         $inscripciones = Inscripcion::with('materia')
             ->where('estudiante_id', $estudianteId)
-            ->where('estado', 'activa')
+            ->where('estado', 'activa') // SOLO ACTIVAS
             ->get();
 
         return response()->json([

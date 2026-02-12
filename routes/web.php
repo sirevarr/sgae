@@ -28,10 +28,10 @@ Route::get('/', function () {
 // RUTAS PROTEGIDAS POR LOGIN
 Route::middleware(['auth', 'verified'])->group(function () {
     
-    // 0. Dashboard Principal
+    // 0. Dashboard Principal 
     Route::get('/dashboard', function () {
         $estudiantesCount = Estudiante::count();
-        $materiasCount = Materia::count();
+        $materiasCount = Materia::where('estado', 'activa')->count(); 
         $promedioGlobal = Evaluacion::avg('promedio') ?? 0;
         
         $totalNotas = Evaluacion::count();
@@ -48,23 +48,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ]);
     })->name('dashboard');
 
-    // 1 a 4. Módulos de Gestión (Sin cambios)
+    // 1 a 4. Módulos de Gestión 
     Route::get('/estudiantes', fn() => Inertia::render('Estudiantes/Index'))->name('estudiantes.index');
     Route::get('/evaluaciones', fn() => Inertia::render('Evaluaciones/Index'))->name('evaluaciones.index');
     Route::get('/materias', fn() => Inertia::render('Materias/Index'))->name('materias.index');
     Route::get('/inscripciones', fn() => Inertia::render('Inscripciones/Index'))->name('inscripciones.index');
 
-    // 5. REPORTE PDF MEJORADO (Agrupado)
+    // 5. REPORTE PDF 
     Route::get('/reporte-general', function () {
-        // Obtenemos evaluaciones con relaciones. 
-        // Agrupamos por grado y seccion (si ya existen) o por Materia
+        // evaluaciones con relaciones
         $evaluacionesRaw = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->get();
         
-        // Esta lógica agrupa por grado y sección en el PDF
+        // Si no existe (datos viejos), cae a ESTUDIANTES (compatibilidad)
         $reporteAgrupado = $evaluacionesRaw->groupBy(function($item) {
-            // Si el campo grado no existe aún, se agrupará bajo "Sin Asignar"
-            $grado = $item->inscripcion->estudiante->grado ?? 'Grado no definido';
-            $seccion = $item->inscripcion->estudiante->seccion ?? 'S/S';
+            // leer desde inscripciones primero (tiene el histórico)
+            $grado = $item->inscripcion->grado ?? $item->inscripcion->estudiante->grado ?? 'Grado no definido';
+            $seccion = $item->inscripcion->seccion ?? $item->inscripcion->estudiante->seccion ?? 'S/S';
             return $grado . ' - Sección: ' . $seccion;
         });
 
@@ -77,7 +76,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ];
 
         $pdf = Pdf::loadView('pdf.reporte_general', [
-            'reporteAgrupado' => $reporteAgrupado, // Enviamos los datos agrupados
+            'reporteAgrupado' => $reporteAgrupado,
             'stats' => $stats,
             'fecha' => date('d/m/Y H:i')
         ]);

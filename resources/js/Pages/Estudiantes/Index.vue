@@ -11,7 +11,7 @@ const editandoId = ref(null);
 const busqueda = ref('');
 const filtroEstado = ref('');
 const filtroGrado = ref('');
-const filtroSeccion = ref(''); // <--- AÑADIDO
+const filtroSeccion = ref('');
 
 const opcionesGrados = [
     { value: '1er Año', label: '1er Año' },
@@ -27,6 +27,8 @@ const form = ref({
     email: '', telefono: '', estado: 'Activo',
     grado: '', seccion: ''
 });
+
+const errores = ref({});
 
 // --- FUNCIONES ---
 const formatearFechaFull = (fecha) => {
@@ -56,12 +58,10 @@ const estudiantesFiltrados = computed(() => {
                                String(e.estado).toLowerCase() === String(filtroEstado.value).toLowerCase();
         
         const coincideGrado = filtroGrado.value === '' || e.grado === filtroGrado.value;
-        
-        // Lógica de filtro de sección añadida
         const coincideSeccion = filtroSeccion.value === '' || e.seccion === filtroSeccion.value;
 
         return coincideBusqueda && coincideEstado && coincideGrado && coincideSeccion;
-    });
+    }).sort((a, b) => a.apellidos.localeCompare(b.apellidos));
 });
 
 const abrirModal = () => {
@@ -71,6 +71,7 @@ const abrirModal = () => {
         fecha_nacimiento: '', lugar_nacimiento: '', direccion: '', 
         email: '', telefono: '', grado: '', seccion: '' 
     };
+    errores.value = {};
     mostrarModal.value = true;
 };
 
@@ -88,12 +89,56 @@ const prepararEdicion = (est) => {
         grado: est.grado || '',
         seccion: est.seccion || ''
     };
+    errores.value = {};
     mostrarModal.value = true;
 };
 
+const validarFormulario = () => {
+    errores.value = {};
+
+    if (!form.value.cedula) {
+        errores.value.cedula = 'La cédula es obligatoria';
+    } else if (!/^\d{8}$/.test(form.value.cedula)) {
+        errores.value.cedula = 'La cédula debe tener exactamente 8 dígitos numéricos';
+    }
+
+    if (!form.value.nombres) {
+        errores.value.nombres = 'El nombre es obligatorio';
+    } else if (/\d/.test(form.value.nombres)) {
+        errores.value.nombres = 'El nombre no puede contener números';
+    }
+
+    if (!form.value.apellidos) {
+        errores.value.apellidos = 'El apellido es obligatorio';
+    } else if (/\d/.test(form.value.apellidos)) {
+        errores.value.apellidos = 'El apellido no puede contener números';
+    }
+
+    if (!form.value.fecha_nacimiento) {
+        errores.value.fecha_nacimiento = 'La fecha de nacimiento es obligatoria';
+    }
+
+    if (form.value.telefono && !/^\d{11}$/.test(form.value.telefono)) {
+        errores.value.telefono = 'El teléfono debe tener exactamente 11 dígitos';
+    }
+
+    if (form.value.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email)) {
+        errores.value.email = 'El correo debe ser válido (ej: usuario@gmail.com)';
+    }
+
+    if (!form.value.grado) {
+        errores.value.grado = 'El grado es obligatorio';
+    }
+
+    if (!form.value.seccion) {
+        errores.value.seccion = 'La sección es obligatoria';
+    }
+
+    return Object.keys(errores.value).length === 0;
+};
+
 const guardar = async () => {
-    if (!form.value.cedula || !form.value.nombres || !form.value.apellidos || !form.value.grado) {
-        alert("Por favor, complete los campos obligatorios (*)");
+    if (!validarFormulario()) {
         return;
     }
 
@@ -105,9 +150,12 @@ const guardar = async () => {
         }
         await cargarEstudiantes();
         mostrarModal.value = false;
-        alert("¡Registro guardado con éxito!");
+        alert("Registro guardado exitosamente");
     } catch (e) {
-        alert(e.response?.data?.message || "Error al procesar la solicitud");
+        const mensaje = e.response?.data?.errors?.cedula?.[0] || 
+                       e.response?.data?.message || 
+                       "Error al procesar la solicitud";
+        alert(mensaje);
     }
 };
 
@@ -185,7 +233,7 @@ onMounted(cargarEstudiantes);
                                 <tr v-for="est in estudiantesFiltrados" :key="est.id" class="hover:bg-sky-50/40 transition">
                                     <td class="px-4 py-4 font-mono text-sky-400 font-black text-xs">V-{{ est.cedula }}</td>
                                     <td class="px-4 py-4">
-                                        <div class="font-bold text-sky-900 uppercase text-sm leading-tight">{{ est.nombres }} {{ est.apellidos }}</div>
+                                        <div class="font-bold text-sky-900 text-sm leading-tight">{{ est.nombres }} {{ est.apellidos }}</div>
                                         <div class="mt-1">
                                             <span class="bg-sky-100 text-sky-600 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-sky-200">
                                                 {{ est.grado || 'S/G' }} - {{ est.seccion || 'S/S' }}
@@ -195,10 +243,10 @@ onMounted(cargarEstudiantes);
                                     <td class="px-4 py-4 text-center text-[10px] font-black text-gray-400 uppercase">{{ est.genero }}</td>
                                     <td class="px-4 py-4">
                                         <div class="text-[11px] font-bold text-gray-700">{{ formatearFechaFull(est.fecha_nacimiento) }}</div>
-                                        <div class="text-[10px] text-gray-400 uppercase italic">{{ est.lugar_nacimiento || 'N/A' }}</div>
+                                        <div class="text-[10px] text-gray-400 italic">{{ est.lugar_nacimiento || 'N/A' }}</div>
                                     </td>
                                     <td class="px-4 py-4">
-                                        <div class="text-[10px] uppercase text-gray-600 max-w-[200px] break-words leading-tight">{{ est.direccion || 'S/D' }}</div>
+                                        <div class="text-[10px] text-gray-600 max-w-[200px] break-words leading-tight">{{ est.direccion || 'S/D' }}</div>
                                     </td>
                                     <td class="px-4 py-4">
                                         <div class="text-sky-600 font-bold text-[11px]">{{ est.email || 'Sin correo' }}</div>
@@ -241,16 +289,19 @@ onMounted(cargarEstudiantes);
 
                 <form @submit.prevent="guardar" class="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Cédula</label>
-                        <input v-model="form.cedula" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required />
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Cédula *</label>
+                        <input v-model="form.cedula" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Ingrese 8 dígitos numéricos" @input="form.cedula = form.cedula.replace(/\D/g, '').substring(0, 8)" />
+                        <span v-if="errores.cedula" class="text-[9px] text-red-500">{{ errores.cedula }}</span>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Nombres</label>
-                        <input v-model="form.nombres" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 uppercase font-bold text-sm" required />
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Nombres *</label>
+                        <input v-model="form.nombres" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Ej: Juan Pablo" @input="form.nombres = form.nombres.replace(/\d/g, '')" />
+                        <span v-if="errores.nombres" class="text-[9px] text-red-500">{{ errores.nombres }}</span>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Apellidos</label>
-                        <input v-model="form.apellidos" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 uppercase font-bold text-sm" required />
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Apellidos *</label>
+                        <input v-model="form.apellidos" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Ej: García Pérez" @input="form.apellidos = form.apellidos.replace(/\d/g, '')" />
+                        <span v-if="errores.apellidos" class="text-[9px] text-red-500">{{ errores.apellidos }}</span>
                     </div>
 
                     <div class="space-y-1">
@@ -261,36 +312,40 @@ onMounted(cargarEstudiantes);
                         </select>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Fecha Nacimiento</label>
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Fecha Nacimiento *</label>
                         <input v-model="form.fecha_nacimiento" type="date" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" />
+                        <span v-if="errores.fecha_nacimiento" class="text-[9px] text-red-500">{{ errores.fecha_nacimiento }}</span>
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Lugar Nacimiento</label>
-                        <input v-model="form.lugar_nacimiento" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm uppercase" />
+                        <input v-model="form.lugar_nacimiento" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Opcional..." />
                     </div>
 
                     <div class="space-y-1 md:col-span-2">
                         <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Dirección</label>
-                        <input v-model="form.direccion" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm uppercase" />
+                        <input v-model="form.direccion" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Opcional..." />
                     </div>
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Teléfono</label>
-                        <input v-model="form.telefono" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" />
+                        <input v-model="form.telefono" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Ingrese 11 dígitos numéricos" @input="form.telefono = form.telefono.replace(/\D/g, '').substring(0, 11)" />
+                        <span v-if="errores.telefono" class="text-[9px] text-red-500">{{ errores.telefono }}</span>
                     </div>
 
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Email</label>
-                        <input v-model="form.email" type="email" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" />
+                        <input v-model="form.email" type="email" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" placeholder="Ej: usuario@gmail.com" />
+                        <span v-if="errores.email" class="text-[9px] text-red-500">{{ errores.email }}</span>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Grado</label>
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Grado *</label>
                         <select v-model="form.grado" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required>
                             <option value="" disabled>Seleccione...</option>
                             <option v-for="g in opcionesGrados" :key="g.value" :value="g.value">{{ g.label }}</option>
                         </select>
+                        <span v-if="errores.grado" class="text-[9px] text-red-500">{{ errores.grado }}</span>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Sección</label>
+                        <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Sección *</label>
                         <select v-model="form.seccion" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required>
                             <option value="" disabled>Seleccione...</option>
                             <option value="A">Sección A</option>
@@ -298,6 +353,7 @@ onMounted(cargarEstudiantes);
                             <option value="C">Sección C</option>
                             <option value="U">Única</option>
                         </select>
+                        <span v-if="errores.seccion" class="text-[9px] text-red-500">{{ errores.seccion }}</span>
                     </div>
 
                     <div class="space-y-1">

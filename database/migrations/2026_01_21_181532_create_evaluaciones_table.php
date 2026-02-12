@@ -17,7 +17,7 @@ return new class extends Migration
         
         // Cambia el 'storedAs' por un decimal simple
         $table->decimal('promedio', 5, 2)->nullable();
-        $table->string('estado', 20)->nullable(); // <--- Esta es la que falta 
+        $table->string('estado', 20)->nullable(); 
         
         $table->date('fecha')->useCurrent();
         $table->text('observaciones')->nullable();

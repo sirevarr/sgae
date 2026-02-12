@@ -13,6 +13,7 @@ const busqueda = ref('');
 const filtroEstado = ref(''); 
 const filtroGrado = ref(''); 
 const filtroSeccion = ref(''); 
+const filtroPeriodo = ref('');
 
 const form = ref({
     inscripcion_id: '', 
@@ -58,7 +59,10 @@ const cargarDatos = async () => {
             axios.get('/api/inscripciones')
         ]);
         evaluaciones.value = resEva.data.data || resEva.data;
-        inscripciones.value = resIns.data.data || resIns.data;
+        // FILTRAR: Solo inscripciones ACTIVAS
+        inscripciones.value = (resIns.data.data || resIns.data).filter(i =>
+            String(i.estado).toLowerCase().startsWith('act')
+        );
     } catch (e) { 
         console.error("Error al cargar datos", e); 
     }
@@ -68,23 +72,37 @@ const descargarPDF = () => {
     const params = new URLSearchParams({
         grado: filtroGrado.value,
         seccion: filtroSeccion.value,
+        periodo: filtroPeriodo.value,
         estado: filtroEstado.value
     }).toString();
     window.open(`/api/evaluaciones/reporte-pdf?${params}`, '_blank');
 };
 
-const evaluacionesFiltradas = computed(() => {
-    return evaluaciones.value.filter(eva => {
-        const buscar = busqueda.value.toLowerCase().trim();
-        const est = eva.inscripcion?.estudiante;
-        const info = `${est?.nombres} ${est?.apellidos} ${est?.cedula} ${eva.inscripcion?.materia?.nombre}`.toLowerCase();
-        
-        const coincideTexto = info.includes(buscar);
-        const coincideEstado = filtroEstado.value === '' || String(eva.estado).toLowerCase() === filtroEstado.value.toLowerCase();
-        const coincideGrado = filtroGrado.value === '' || est?.grado === filtroGrado.value;
-        const coincideSeccion = filtroSeccion.value === '' || est?.seccion === filtroSeccion.value;
+// Periodos únicos desde las inscripciones para poblar el filtro
+const periodosDisponibles = computed(() => {
+    const set = new Set((inscripciones.value || []).map(i => i.periodo).filter(Boolean));
+    return Array.from(set).sort();
+});
 
-        return coincideTexto && coincideEstado && coincideGrado && coincideSeccion;
+const evaluacionesFiltradas = computed(() => {
+    return evaluaciones.value.filter(item => {
+        const buscar = busqueda.value.toLowerCase().trim();
+        const est = item.inscripcion?.estudiante;
+        const ins = item.inscripcion;
+        const info = `${est?.nombres} ${est?.apellidos} ${est?.cedula} ${item.inscripcion?.materia?.nombre}`.toLowerCase();
+
+        // Preferimos leer grado/sección históricos desde la inscripción;
+        // si no existen, caemos al estudiante por compatibilidad.
+        const gradoIns = ins?.grado ?? est?.grado;
+        const seccionIns = ins?.seccion ?? est?.seccion;
+
+        const coincideTexto = info.includes(buscar);
+        const coincideEstado = filtroEstado.value === '' || String(item.estado).toLowerCase() === filtroEstado.value.toLowerCase();
+        const coincideGrado = filtroGrado.value === '' || gradoIns === filtroGrado.value;
+        const coincideSeccion = filtroSeccion.value === '' || seccionIns === filtroSeccion.value;
+        const coincidePeriodo = filtroPeriodo.value === '' || (item.inscripcion?.periodo || '') === filtroPeriodo.value;
+
+        return coincideTexto && coincideEstado && coincideGrado && coincideSeccion && coincidePeriodo;
     });
 });
 
@@ -99,30 +117,49 @@ const abrirModal = () => {
     mostrarModal.value = true;
 };
 
-const prepararEdicion = (eva) => {
-    editandoId.value = eva.id;
+const prepararEdicion = (item) => {
+    editandoId.value = item.id;
     form.value = { 
-        ...eva,
-        fecha: eva.fecha ? eva.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
-        observaciones: eva.observaciones || ''
+        ...item,
+        fecha: item.fecha ? item.fecha.split('T')[0] : new Date().toISOString().split('T')[0],
+        observaciones: item.observaciones || ''
     };
     mostrarModal.value = true;
 };
 
 const guardar = async () => {
     try {
+        if (!form.value.inscripcion_id) {
+            alert('Debes seleccionar una inscripción.');
+            return;
+        }
+
         const payload = { ...form.value, estado: form.value.estado.toLowerCase() };
         if (editandoId.value) {
             await axios.put(`/api/evaluaciones/${editandoId.value}`, payload);
+            alert('Evaluación actualizada con éxito');
         } else {
-            await axios.post('/api/evaluaciones', payload);
+            const response = await axios.post('/api/evaluaciones', payload);
+            alert('Evaluación creada exitosamente');
         }
         await cargarDatos();
         mostrarModal.value = false;
-        alert("¡Registro guardado con éxito!");
     } catch (e) { 
-        const msg = e.response?.data?.message || "Error al procesar la solicitud.";
-        alert(msg); 
+        console.error('Error:', e);
+        if (e.response?.status === 422) {
+            const errorMsg = e.response.data?.error || 
+                           (e.response.data?.errors?.inscripcion_id?.[0]) ||
+                           'Error al procesar la solicitud';
+            
+            // MENSAJE ESPECÍFICO para evaluación duplicada
+            if (errorMsg.includes('unique')) {
+                alert('Evaluación duplicada para este estudiante en esta materia');
+            } else {
+                alert(errorMsg);
+            }
+        } else {
+            alert('Error al procesar la solicitud');
+        }
     }
 };
 
@@ -130,7 +167,8 @@ const eliminar = async (id) => {
     if (confirm('¿Está seguro de eliminar este registro de notas?')) {
         try {
             await axios.delete(`/api/evaluaciones/${id}`);
-            cargarDatos();
+            await cargarDatos();
+            alert('Evaluación eliminada con éxito');
         } catch (e) {
             alert("No se pudo eliminar el registro.");
         }
@@ -176,6 +214,11 @@ onMounted(cargarDatos);
                             <option v-for="letra in ['A', 'B', 'C', 'D', 'U']" :key="letra" :value="letra">Sección {{ letra }}</option>
                         </select>
 
+                        <select v-model="filtroPeriodo" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
+                            <option value="">Todos los períodos</option>
+                            <option v-for="p in periodosDisponibles" :key="p" :value="p">{{ p }}</option>
+                        </select>
+
                         <select v-model="filtroEstado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todos los estados</option>
                             <option value="aprobado">Aprobado</option>
@@ -197,50 +240,54 @@ onMounted(cargarDatos);
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-50 bg-white">
-                                <tr v-for="eva in evaluacionesFiltradas" :key="eva.id" class="hover:bg-sky-50/40 transition">
+                                <tr v-for="item in evaluacionesFiltradas" :key="item.id" class="hover:bg-sky-50/40 transition">
                                     <td class="px-6 py-4">
                                         <div class="text-[10px] font-black text-sky-400 font-mono tracking-tighter uppercase mb-0.5">
-                                            V-{{ eva.inscripcion?.estudiante?.cedula }}
+                                            V-{{ item.inscripcion?.estudiante?.cedula }}
                                         </div>
-                                        <div class="font-bold text-sky-900 uppercase text-sm">
-                                            {{ eva.inscripcion?.estudiante?.nombres }} {{ eva.inscripcion?.estudiante?.apellidos }}
+                                        <div class="font-bold text-sky-900 text-sm">
+                                            {{ item.inscripcion?.estudiante?.nombres }} {{ item.inscripcion?.estudiante?.apellidos }}
                                         </div>
                                         <div class="mt-1">
                                             <span class="bg-sky-100 text-sky-600 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-sky-200">
-                                                {{ eva.inscripcion?.estudiante?.grado }} - "{{ eva.inscripcion?.estudiante?.seccion }}"
+                                                {{ item.inscripcion?.grado ?? item.inscripcion?.estudiante?.grado }} - "{{ item.inscripcion?.seccion ?? item.inscripcion?.estudiante?.seccion }}"
                                             </span>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center whitespace-nowrap">
-                                        <span class="bg-slate-50 border px-2 py-1 rounded text-[11px] font-mono font-bold mr-1">P1: {{ eva.nota_parcial1 }}</span>
-                                        <span class="bg-slate-50 border px-2 py-1 rounded text-[11px] font-mono font-bold mr-1">P2: {{ eva.nota_parcial2 }}</span>
-                                        <span class="bg-sky-50 border border-sky-100 px-2 py-1 rounded text-[11px] font-mono font-black text-sky-600">F: {{ eva.nota_final }}</span>
+                                        <span class="bg-slate-50 border px-2 py-1 rounded text-[11px] font-mono font-bold mr-1">P1: {{ item.nota_parcial1 }}</span>
+                                        <span class="bg-slate-50 border px-2 py-1 rounded text-[11px] font-mono font-bold mr-1">P2: {{ item.nota_parcial2 }}</span>
+                                        <span class="bg-sky-50 border border-sky-100 px-2 py-1 rounded text-[11px] font-mono font-black text-sky-600">F: {{ item.nota_final }}</span>
                                     </td>
-                                    <td class="px-6 py-4 text-center font-black text-lg text-sky-600">{{ eva.promedio }}</td>
+                                    <td class="px-6 py-4 text-center font-black text-lg text-sky-600">{{ item.promedio }}</td>
                                     <td class="px-6 py-4">
-                                        <div class="text-[10px] text-sky-400 font-black uppercase tracking-tighter">{{ eva.inscripcion?.materia?.nombre }}</div>
-                                        <div class="text-[10px] font-bold text-gray-400 uppercase">{{ formatearFecha(eva.fecha) }}</div>
+                                        <div class="text-[10px] text-sky-400 font-black tracking-tighter">{{ item.inscripcion?.materia?.nombre }}</div>
+                                        <div class="text-[10px] font-bold text-gray-400">{{ formatearFecha(item.fecha) }}</div>
+                                        <div v-if="item.observaciones" class="mt-2 text-sm text-gray-600 italic max-w-[380px] break-words">
+                                            {{ item.observaciones }}
+                                        </div>
+                                        <div v-else class="mt-2 text-sm text-gray-400 italic">-</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex flex-col gap-1">
                                             <div class="flex items-center gap-2">
                                                 <span class="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase">CREADO</span>
-                                                <span class="text-[10px] text-gray-500">{{ formatearFecha(eva.created_at) }}</span>
+                                                <span class="text-[10px] text-gray-500">{{ formatearFecha(item.created_at) }}</span>
                                             </div>
                                             <div class="flex items-center gap-2">
                                                 <span class="text-[9px] bg-sky-100 text-sky-500 px-1 py-0.5 rounded font-bold uppercase">EDITADO</span>
-                                                <span class="text-[10px] text-sky-600">{{ formatearFecha(eva.updated_at) }}</span>
+                                                <span class="text-[10px] text-sky-600">{{ formatearFecha(item.updated_at) }}</span>
                                             </div>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
-                                        <span :class="String(eva.estado).toLowerCase() === 'aprobado' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
-                                            {{ eva.estado }}
+                                        <span :class="String(item.estado).toLowerCase() === 'aprobado' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
+                                            {{ item.estado }}
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right whitespace-nowrap text-xs font-black uppercase">
-                                        <button @click="prepararEdicion(eva)" class="text-sky-500 mr-3 hover:underline">EDITAR</button>
-                                        <button @click="eliminar(eva.id)" class="text-red-400 hover:underline">ELIMINAR</button>
+                                        <button @click="prepararEdicion(item)" class="text-sky-500 mr-3 hover:underline">EDITAR</button>
+                                        <button @click="eliminar(item.id)" class="text-red-400 hover:underline">ELIMINAR</button>
                                     </td>
                                 </tr>
                             </tbody>
@@ -259,7 +306,7 @@ onMounted(cargarDatos);
                         <select v-model="form.inscripcion_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required :disabled="!!editandoId">
                             <option value="">Seleccione Estudiante</option>
                             <option v-for="i in inscripciones" :key="i.id" :value="i.id">
-                                [{{ i.estudiante?.cedula }}] — {{ i.estudiante?.apellidos }}, {{ i.estudiante?.nombres }} ({{ i.materia?.nombre }})
+                                [{{ i.estudiante?.cedula }}] — {{ i.estudiante?.apellidos }}, {{ i.estudiante?.nombres }} — {{ i.materia?.codigo_materia }} {{ i.materia?.nombre }} — {{ i.periodo }}
                             </option>
                         </select>
                     </div>

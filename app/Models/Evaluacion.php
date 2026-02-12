@@ -19,7 +19,7 @@ class Evaluacion extends Model
         'promedio',
         'estado',
         'fecha',
-        'observaciones' // <--- Añadir este campo
+        'observaciones'
     ];
 
     // Relación con Inscripción
@@ -28,7 +28,7 @@ class Evaluacion extends Model
         return $this->belongsTo(Inscripcion::class, 'inscripcion_id');
     }
 
-    // LÓGICA AUTOMÁTICA: Se ejecuta antes de guardar en la BD
+    //Se ejecuta antes de guardar en la BD
     protected static function boot()
     {
         parent::boot();
@@ -38,10 +38,10 @@ class Evaluacion extends Model
             $p2 = $model->nota_parcial2 ?? 0;
             $nf = $model->nota_final ?? 0;
 
-            // Calculamos promedio (Escala 0-20)
+            // Calculo promedio (Escala 0-20)
             $model->promedio = round(($p1 + $p2 + $nf) / 3, 2);
 
-            // Definimos estado automáticamente
+            // Definir estado automáticamente
             $model->estado = $model->promedio >= 10 ? 'aprobado' : 'reprobado';
         });
     }

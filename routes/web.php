@@ -4,7 +4,7 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use Barryvdh\DomPDF\Facade\Pdf; 
+// DomPDF removed — PDF routes deleted
 
 use App\Models\Estudiante;
 use App\Models\Materia;
@@ -54,35 +54,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/materias', fn() => Inertia::render('Materias/Index'))->name('materias.index');
     Route::get('/inscripciones', fn() => Inertia::render('Inscripciones/Index'))->name('inscripciones.index');
 
-    // 5. REPORTE PDF 
-    Route::get('/reporte-general', function () {
-        // evaluaciones con relaciones
-        $evaluacionesRaw = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->get();
-        
-        // Si no existe (datos viejos), cae a ESTUDIANTES (compatibilidad)
-        $reporteAgrupado = $evaluacionesRaw->groupBy(function($item) {
-            // leer desde inscripciones primero (tiene el histórico)
-            $grado = $item->inscripcion->grado ?? $item->inscripcion->estudiante->grado ?? 'Grado no definido';
-            $seccion = $item->inscripcion->seccion ?? $item->inscripcion->estudiante->seccion ?? 'S/S';
-            return $grado . ' - Sección: ' . $seccion;
-        });
-
-        $stats = [
-            'estudiantesCount' => Estudiante::count(),
-            'promedioGlobal'   => number_format(Evaluacion::avg('promedio') ?? 0, 2),
-            'porcentajeAprobados' => Evaluacion::count() > 0 
-                ? round((Evaluacion::where('estado', 'aprobado')->count() / Evaluacion::count()) * 100) 
-                : 0
-        ];
-
-        $pdf = Pdf::loadView('pdf.reporte_general', [
-            'reporteAgrupado' => $reporteAgrupado,
-            'stats' => $stats,
-            'fecha' => date('d/m/Y H:i')
-        ]);
-
-        return $pdf->stream('Reporte_Academico_SGAE.pdf');
-    })->name('reporte.general');
+    // PDF report route removed
 
     // Perfil
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

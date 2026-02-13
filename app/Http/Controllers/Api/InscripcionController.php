@@ -76,6 +76,14 @@ class InscripcionController extends Controller
             // CAPTURAR GRADO Y SECCIÓN DEL ESTUDIANTE EN ESTE MOMENTO
             // Congelamos el grado y sección en la inscripción
             $estudiante = Estudiante::find($request->estudiante_id);
+
+            // VALIDAR QUE EL ESTUDIANTE ESTÉ ACTIVO
+            if ($estudiante && !str_starts_with(strtolower((string)($estudiante->estado ?? '')), 'act')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No se puede inscribir a un estudiante inactivo.'
+                ], 422);
+            }
             
             // Preparar los datos para crear la inscripción
             $datosInscripcion = $request->all();

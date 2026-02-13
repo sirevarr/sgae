@@ -20,7 +20,6 @@ Route::apiResource('inscripciones', InscripcionController::class);
 
 // --- Módulo de Evaluaciones ---
 // 1. RUTAS ESPECÍFICAS PRIMERO
-Route::get('evaluaciones/reporte-pdf', [EvaluacionController::class, 'reportePDF']); // <--- MOVIDA AQUÍ
 Route::get('evaluaciones/reporte/{estudiante}', [EvaluacionController::class, 'reporteAcademico']);
 Route::get('evaluaciones/inscripciones-alumno/{estudiante}', [EvaluacionController::class, 'inscripcionesPorEstudiante']);
 

@@ -7,7 +7,6 @@ use App\Models\Evaluacion;
 use App\Models\Inscripcion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Barryvdh\DomPDF\Facade\Pdf;
 
 class EvaluacionController extends Controller
 {
@@ -162,58 +161,7 @@ class EvaluacionController extends Controller
         ]);
     }
 
-    /**
-     * REPORTE PDF
-     */
-    public function reportePDF(Request $request)
-    {
-        $grado = $request->query('grado');
-        $seccion = $request->query('seccion');
-        $estado = $request->query('estado');
-        $periodo = $request->query('periodo');
-
-        $query = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia']);
-
-        // Filtrar por grado/sección/periodo tomando los valores congelados en la inscripción
-        if (!empty($grado)) {
-            $query->whereHas('inscripcion', function($q) use ($grado) {
-                $q->where('grado', $grado);
-            });
-        }
-
-        if (!empty($seccion)) {
-            $query->whereHas('inscripcion', function($q) use ($seccion) {
-                $q->where('seccion', $seccion);
-            });
-        }
-
-        if (!empty($periodo)) {
-            $query->whereHas('inscripcion', function($q) use ($periodo) {
-                $q->where('periodo', $periodo);
-            });
-        }
-
-        if (!empty($estado)) {
-            $query->where('estado', $estado);
-        }
-
-        $evaluaciones = $query->get();
-
-        $data = [
-            'titulo' => 'Reporte de Calificaciones',
-            'fecha' => date('d/m/Y'),
-            'evaluaciones' => $evaluaciones,
-            'filtros' => [
-                'grado' => $grado ?? 'Todos',
-                'seccion' => $seccion ?? 'Todas',
-                'periodo' => $periodo ?? 'Todos',
-                'estado' => $estado ?? 'Todos'
-            ]
-        ];
-
-        $pdf = Pdf::loadView('pdf.reporte_evaluaciones', $data);
-        return $pdf->setPaper('a4', 'landscape')->stream("Reporte_Evaluaciones.pdf");
-    }
+    // PDF report generation removed per project policy
 
     /**
      * HISTORIAL ACADÉMICO POR ESTUDIANTE

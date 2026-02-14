@@ -80,7 +80,7 @@ const inscripcionesFiltradas = computed(() => {
         
         const info = `${est?.nombres} ${est?.apellidos} ${est?.cedula} ${ins.materia?.nombre}`.toLowerCase();
         const coincideTexto = info.includes(buscar);
-        const coincideGrado = filtroGrado.value === '' || est?.grado === filtroGrado.value;
+        const coincideGrado = filtroGrado.value === '' || String(est?.grado) === String(filtroGrado.value);
         const coincideSeccion = filtroSeccion.value === '' || est?.seccion === filtroSeccion.value;
         const coincidePeriodo = filtroPeriodo.value === '' || (ins.periodo || '') === filtroPeriodo.value;
         
@@ -196,7 +196,7 @@ onMounted(cargarDatos);
                         
                         <select v-model="filtroGrado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
                             <option value="">Todos los grados</option>
-                            <option v-for="(nombre, num) in nombresGrados" :key="num" :value="nombre">
+                            <option v-for="(nombre, num) in nombresGrados" :key="num" :value="num">
                                 {{ nombre }}
                             </option>
                         </select>

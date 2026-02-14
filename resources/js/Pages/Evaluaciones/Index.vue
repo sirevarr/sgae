@@ -90,7 +90,7 @@ const evaluacionesFiltradas = computed(() => {
 
         const coincideTexto = info.includes(buscar);
         const coincideEstado = filtroEstado.value === '' || String(item.estado).toLowerCase() === filtroEstado.value.toLowerCase();
-        const coincideGrado = filtroGrado.value === '' || gradoIns === filtroGrado.value;
+        const coincideGrado = filtroGrado.value === '' || String(gradoIns) === String(filtroGrado.value);
         const coincideSeccion = filtroSeccion.value === '' || seccionIns === filtroSeccion.value;
         const coincidePeriodo = filtroPeriodo.value === '' || (item.inscripcion?.periodo || '') === filtroPeriodo.value;
 
@@ -192,7 +192,7 @@ onMounted(cargarDatos);
                         
                         <select v-model="filtroGrado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todos los grados</option>
-                            <option v-for="n in 5" :key="n" :value="obtenerNombreGrado(n)">{{ obtenerNombreGrado(n) }}</option>
+                            <option v-for="n in 5" :key="n" :value="n">{{ obtenerNombreGrado(n) }}</option>
                         </select>
 
                         <select v-model="filtroSeccion" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">

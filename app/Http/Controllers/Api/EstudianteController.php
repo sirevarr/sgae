@@ -65,9 +65,11 @@ class EstudianteController extends Controller
         }
 
         $data = $request->all();
-        // Normaliza el estado para que coincida con la vista
+        // Normaliza el estado (usar minúsculas coherentes con la BD)
         if (!isset($data['estado'])) {
-            $data['estado'] = 'Activo';
+            $data['estado'] = 'activo';
+        } else {
+            $data['estado'] = strtolower($data['estado']);
         }
 
         $estudiante = Estudiante::create($data);

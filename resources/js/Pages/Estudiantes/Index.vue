@@ -14,17 +14,17 @@ const filtroGrado = ref('');
 const filtroSeccion = ref('');
 
 const opcionesGrados = [
-    { value: '1er Año', label: '1er Año' },
-    { value: '2do Año', label: '2do Año' },
-    { value: '3er Año', label: '3er Año' },
-    { value: '4to Año', label: '4to Año' },
-    { value: '5to Año', label: '5to Año' },
+    { value: '1', label: '1er Año' },
+    { value: '2', label: '2do Año' },
+    { value: '3', label: '3er Año' },
+    { value: '4', label: '4to Año' },
+    { value: '5', label: '5to Año' },
 ];
 
 const form = ref({
     cedula: '', nombres: '', apellidos: '', genero: 'M',
     fecha_nacimiento: '', lugar_nacimiento: '', direccion: '',
-    email: '', telefono: '', estado: 'Activo',
+    email: '', telefono: '', estado: 'activo',
     grado: '', seccion: ''
 });
 
@@ -57,7 +57,7 @@ const estudiantesFiltrados = computed(() => {
         const coincideEstado = filtroEstado.value === '' || 
                                String(e.estado).toLowerCase() === String(filtroEstado.value).toLowerCase();
         
-        const coincideGrado = filtroGrado.value === '' || e.grado === filtroGrado.value;
+        const coincideGrado = filtroGrado.value === '' || String(e.grado) === String(filtroGrado.value);
         const coincideSeccion = filtroSeccion.value === '' || e.seccion === filtroSeccion.value;
 
         return coincideBusqueda && coincideEstado && coincideGrado && coincideSeccion;
@@ -209,8 +209,8 @@ onMounted(cargarEstudiantes);
 
                         <select v-model="filtroEstado" class="border-sky-100 rounded-xl text-sky-700 font-bold text-sm">
                             <option value="">Todos los estados</option>
-                            <option value="Activo">Activo</option>
-                            <option value="Inactivo">Inactivo</option>
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
                         </select>
                     </div>
 
@@ -359,8 +359,8 @@ onMounted(cargarEstudiantes);
                     <div class="space-y-1">
                         <label class="text-[10px] font-black text-sky-700 uppercase ml-1">Estado</label>
                         <select v-model="form.estado" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-black text-sky-600 text-sm">
-                            <option value="Activo">Activo</option>
-                            <option value="Inactivo">Inactivo</option>
+                            <option value="activo">Activo</option>
+                            <option value="inactivo">Inactivo</option>
                         </select>
                     </div>
 

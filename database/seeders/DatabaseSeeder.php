@@ -143,16 +143,42 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // 10. Ejemplo de Sección
+        // 10. Mencion de prueba
+        $mencionCiencias = Mencion::where('nombre', 'Ciencias')->first();
+        $idMencion = $mencionCiencias ? $mencionCiencias->id_mencion : 1;
+
+        // 11. Ejemplo de Sección
         Seccion::updateOrCreate(
             ['codigo_seccion' => '1A-2025'],
             [
                 'letra' => 'A',
                 'codigo_grado' => '1ER',
                 'codigo_ano_escolar' => '2025-2026',
+                'id_mencion' => $idMencion,
                 'capacidad_maxima' => 35,
                 'turno' => 'mañana'
             ]
         );
+
+        // 12. Población del Plan de Estudios para permitir guardar notas en la base de datos
+        // (SQL Server requiere FK compuesta apuntando a Plan_Estudios)
+        foreach ($materias as $mat) {
+            \App\Models\PlanEstudios::updateOrCreate(
+                [
+                    'siglas_materia' => $mat['siglas'],
+                    'id_mencion' => $idMencion,
+                    'codigo_grado' => '1ER',
+                    'codigo_ano_escolar' => '2025-2026',
+                ],
+                [
+                    'horas_semanales' => 4,
+                    'obligatoria' => true,
+                    'tipo_evaluacion' => 'N',
+                    'se_repara' => true,
+                    'creditos' => 1,
+                    'estado' => 'activo'
+                ]
+            );
+        }
     }
 }

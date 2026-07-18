@@ -182,24 +182,30 @@ class EvaluacionController extends Controller
             $filaEst    = [];
             $promedios  = [];
 
+            // Acceso seguro via Collection::get() — evita TypeError si no hay notas para ese estudiante
+            $evalsEstudiante = $evaluaciones->get($cedula);
+
             foreach ($plan as $pe) {
-                $siglas  = $pe->siglas_materia;
-                $notas   = [];
+                $siglas       = $pe->siglas_materia;
+                $notas        = [];
+                $evalsMateria = $evalsEstudiante?->get($siglas);
 
                 for ($m = 1; $m <= 3; $m++) {
-                    $notas[$m] = $evaluaciones[$cedula][$siglas]
-                        ?->firstWhere('numero_momento', $m)
-                        ?->nota;
+                    $notas[$m] = $evalsMateria?->firstWhere('numero_momento', $m)?->nota;
                 }
 
-                $notaFinal = array_filter($notas) ? round(array_sum(array_filter($notas)) / count(array_filter($notas)), 2) : null;
-                $resultado = $notaFinal !== null ? ($notaFinal >= $notaMinima ? 'A' : 'R') : 'P';
+                // Filtra solo nulls; permite nota 0
+                $notasValidas = array_filter($notas, fn($n) => $n !== null);
+                $notaFinal    = count($notasValidas) > 0
+                    ? round(array_sum($notasValidas) / count($notasValidas), 2)
+                    : null;
+                $resultado    = $notaFinal !== null ? ($notaFinal >= $notaMinima ? 'A' : 'R') : 'P';
 
                 $filaEst[$siglas] = [
-                    'm1'     => $notas[1],
-                    'm2'     => $notas[2],
-                    'm3'     => $notas[3],
-                    'final'  => $notaFinal,
+                    'm1'        => $notas[1],
+                    'm2'        => $notas[2],
+                    'm3'        => $notas[3],
+                    'final'     => $notaFinal,
                     'resultado' => $resultado,
                 ];
 
@@ -211,10 +217,10 @@ class EvaluacionController extends Controller
             $promedioGral = count($promedios) ? round(array_sum($promedios) / count($promedios), 2) : null;
 
             $resumen[] = [
-                'estudiante'     => $matricula->estudiante,
-                'numero_lista'   => $matricula->numero_lista,
-                'materias'       => $filaEst,
-                'promedio_gral'  => $promedioGral,
+                'estudiante'    => $matricula->estudiante,
+                'numero_lista'  => $matricula->numero_lista,
+                'materias'      => $filaEst,
+                'promedio_gral' => $promedioGral,
             ];
         }
 

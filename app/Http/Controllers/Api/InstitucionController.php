@@ -23,12 +23,12 @@ class InstitucionController extends Controller
         $inst = Institucion::findOrFail($codigo_dea);
 
         $data = $request->validate([
-            'nombre'                 => 'sometimes|string|max:300',
-            'direccion'              => 'sometimes|string|max:500',
-            'telefono'               => 'sometimes|string|max:30',
-            'municipio'              => 'sometimes|string|max:100',
-            'estado'                 => 'sometimes|string|max:100',
-            'zona_educativa'         => 'sometimes|string|max:100',
+            'nombre'                 => 'sometimes|string|max:150',
+            'direccion'              => 'sometimes|string|max:200',
+            'telefono'               => 'sometimes|string|max:20',
+            'municipio'              => 'sometimes|string|max:80',
+            'estado'                 => 'sometimes|string|max:80',
+            'zona_educativa'         => 'sometimes|string|max:80',
             'director_actual'        => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
             'coordinador_academico'  => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
         ]);
@@ -41,13 +41,13 @@ class InstitucionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'codigo_dea'             => 'required|string|max:50|unique:Institucion,codigo_dea',
-            'nombre'                 => 'required|string|max:300',
-            'direccion'              => 'nullable|string|max:500',
-            'telefono'               => 'nullable|string|max:30',
-            'municipio'              => 'nullable|string|max:100',
-            'estado'                 => 'nullable|string|max:100',
-            'zona_educativa'         => 'nullable|string|max:100',
+            'codigo_dea'             => 'required|string|max:20|unique:Institucion,codigo_dea',
+            'nombre'                 => 'required|string|max:150',
+            'direccion'              => 'nullable|string|max:200',
+            'telefono'               => 'nullable|string|max:20',
+            'municipio'              => 'nullable|string|max:80',
+            'estado'                 => 'nullable|string|max:80',
+            'zona_educativa'         => 'nullable|string|max:80',
             'director_actual'        => 'nullable|integer|exists:Personal,cedula_personal',
             'coordinador_academico'  => 'nullable|integer|exists:Personal,cedula_personal',
         ]);

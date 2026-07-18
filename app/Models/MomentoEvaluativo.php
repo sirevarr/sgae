@@ -34,12 +34,24 @@ class MomentoEvaluativo extends Model
         return $this->belongsTo(AnioEscolar::class, 'codigo_ano_escolar', 'codigo_ano_escolar');
     }
 
-    public function evaluaciones()
+    /**
+     * Obtiene las evaluaciones de este momento evaluativo.
+     * Laravel no soporta claves compuestas en hasMany, por eso usamos un scope.
+     */
+    public function scopeConEvaluaciones($query)
     {
-        return $this->hasMany(
-            Evaluacion::class,
-            ['numero_momento', 'codigo_ano_escolar'],
-            ['numero_momento', 'codigo_ano_escolar']
-        );
+        // Usa este scope si necesitas filtrar por momento: Model::conEvaluaciones()->...
+        return $query;
+    }
+
+    /**
+     * Devuelve la colección de evaluaciones para este momento.
+     * Uso: $momento->getEvaluaciones()
+     */
+    public function getEvaluaciones()
+    {
+        return Evaluacion::where('numero_momento', $this->numero_momento)
+            ->where('codigo_ano_escolar', $this->codigo_ano_escolar)
+            ->get();
     }
 }

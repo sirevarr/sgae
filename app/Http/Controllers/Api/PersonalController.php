@@ -39,19 +39,20 @@ class PersonalController extends Controller
     {
         $data = $request->validate([
             'cedula_personal'  => 'required|integer|unique:Personal,cedula_personal',
-            'nombres'          => 'required|string|max:200',
-            'apellidos'        => 'required|string|max:200',
-            'cargo'            => 'required|string|max:100',
-            'telefono'         => 'nullable|string|max:30',
-            'correo'           => 'nullable|email|max:200',
+            'nombres'          => 'required|string|max:80',
+            'apellidos'        => 'required|string|max:80',
+            'cargo'            => 'required|string|max:60',
+            'telefono'         => 'nullable|string|max:20',
+            'correo'           => 'nullable|email|max:120',
             'fecha_nacimiento' => 'nullable|date',
-            'genero'           => 'nullable|string|max:20',
+            'genero'           => 'nullable|string|in:M,F',
             'fecha_ingreso'    => 'nullable|date',
             'estado'           => 'nullable|string|max:20',
             'observaciones'    => 'nullable|string',
             // Campos de docente (opcionales)
-            'especialidad'     => 'nullable|string|max:200',
-            'turno'            => 'nullable|string|max:20',
+            'especialidad'     => 'nullable|string|max:80',
+            // turno DB = char(1): M=mañana, T=tarde, N=nocturno
+            'turno'            => 'nullable|string|in:M,T,N',
         ]);
 
         $personal = Personal::create($data);
@@ -73,19 +74,19 @@ class PersonalController extends Controller
         $personal = Personal::findOrFail($cedula);
 
         $data = $request->validate([
-            'nombres'          => 'sometimes|string|max:200',
-            'apellidos'        => 'sometimes|string|max:200',
-            'cargo'            => 'sometimes|string|max:100',
-            'telefono'         => 'sometimes|nullable|string|max:30',
-            'correo'           => 'sometimes|nullable|email|max:200',
+            'nombres'          => 'sometimes|string|max:80',
+            'apellidos'        => 'sometimes|string|max:80',
+            'cargo'            => 'sometimes|string|max:60',
+            'telefono'         => 'sometimes|nullable|string|max:20',
+            'correo'           => 'sometimes|nullable|email|max:120',
             'fecha_nacimiento' => 'sometimes|nullable|date',
-            'genero'           => 'sometimes|nullable|string|max:20',
+            'genero'           => 'sometimes|nullable|string|in:M,F',
             'fecha_ingreso'    => 'sometimes|nullable|date',
             'estado'           => 'sometimes|string|max:20',
             'observaciones'    => 'sometimes|nullable|string',
             // Docente
-            'especialidad'     => 'sometimes|nullable|string|max:200',
-            'turno'            => 'sometimes|nullable|string|max:20',
+            'especialidad'     => 'sometimes|nullable|string|max:80',
+            'turno'            => 'sometimes|nullable|string|in:M,T,N',
         ]);
 
         $personal->update($data);

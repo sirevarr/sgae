@@ -30,15 +30,15 @@ class RepresentanteController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'cedula_representante'  => 'required|integer|unique:Representante,cedula_representante',
-            'nacionalidad'          => 'required|string|max:20',
-            'nombres'               => 'required|string|max:200',
-            'apellidos'             => 'required|string|max:200',
-            'parentesco'            => 'required|string|max:50',
-            'ocupacion'             => 'nullable|string|max:200',
-            'direccion'             => 'nullable|string|max:500',
-            'telefono'              => 'nullable|string|max:30',
-            'correo'                => 'nullable|email|max:200',
+            'cedula_representante'   => 'required|integer|unique:Representante,cedula_representante',
+            'nacionalidad'           => 'required|string|max:30',
+            'nombres'                => 'required|string|max:80',
+            'apellidos'              => 'required|string|max:80',
+            'parentesco'             => 'required|string|max:30',
+            'ocupacion'              => 'nullable|string|max:80',
+            'direccion'              => 'nullable|string|max:200',
+            'telefono'               => 'nullable|string|max:20',
+            'correo'                 => 'nullable|email|max:120',
             'es_representante_legal' => 'sometimes|boolean',
         ]);
 
@@ -49,13 +49,13 @@ class RepresentanteController extends Controller
     {
         $rep = Representante::findOrFail($cedula);
         $data = $request->validate([
-            'nombres'               => 'sometimes|string|max:200',
-            'apellidos'             => 'sometimes|string|max:200',
-            'parentesco'            => 'sometimes|string|max:50',
-            'ocupacion'             => 'sometimes|nullable|string|max:200',
-            'direccion'             => 'sometimes|nullable|string|max:500',
-            'telefono'              => 'sometimes|nullable|string|max:30',
-            'correo'                => 'sometimes|nullable|email|max:200',
+            'nombres'                => 'sometimes|string|max:80',
+            'apellidos'              => 'sometimes|string|max:80',
+            'parentesco'             => 'sometimes|string|max:30',
+            'ocupacion'              => 'sometimes|nullable|string|max:80',
+            'direccion'              => 'sometimes|nullable|string|max:200',
+            'telefono'               => 'sometimes|nullable|string|max:20',
+            'correo'                 => 'sometimes|nullable|email|max:120',
             'es_representante_legal' => 'sometimes|boolean',
         ]);
         $rep->update($data);

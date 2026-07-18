@@ -85,6 +85,9 @@ class DocumentoController extends Controller
                 'folio'              => DocumentoEmitido::generarFolio($tipo),
                 'id_usuario_emisor'  => Auth::id(),
                 'fecha_emision'      => now(),
+                // contenido_pdf es NOT NULL en BD — se almacena vacío al registrar;
+                // si se desea guardar el binario real, llamar a PdfService::generarBytes()
+                'contenido_pdf'      => '',
             ]);
         } catch (\Throwable $e) {
             \Log::warning("No se pudo registrar emisión de {$tipo}: " . $e->getMessage());

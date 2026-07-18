@@ -26,7 +26,7 @@ class AnioEscolarController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'codigo_ano_escolar' => 'required|string|max:20|unique:Anio_Escolar,codigo_ano_escolar',
+            'codigo_ano_escolar' => 'required|string|max:10|unique:Anio_Escolar,codigo_ano_escolar',
             'fecha_inicio'       => 'nullable|date',
             'fecha_fin'          => 'nullable|date|after_or_equal:fecha_inicio',
             'estado'             => 'required|in:vigente,finalizado,planificado',

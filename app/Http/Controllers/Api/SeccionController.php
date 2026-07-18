@@ -42,7 +42,7 @@ class SeccionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'codigo_seccion'      => 'required|string|max:20|unique:Seccion,codigo_seccion',
+            'codigo_seccion'      => 'required|string|max:15|unique:Seccion,codigo_seccion',
             'letra'               => 'required|string|max:1',
             'codigo_grado'        => 'required|string|exists:Grado,codigo_grado',
             'codigo_ano_escolar'  => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',

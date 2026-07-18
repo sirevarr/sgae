@@ -23,8 +23,8 @@ class MateriaController extends Controller
     {
         $data = $request->validate([
             'siglas'         => 'required|string|max:10|unique:Materia,siglas',
-            'nombre'         => 'required|string|max:200',
-            'area_formacion' => 'nullable|string|max:100',
+            'nombre'         => 'required|string|max:80',
+            'area_formacion' => 'nullable|string|max:80',
         ]);
         return response()->json(Materia::create($data), 201);
     }

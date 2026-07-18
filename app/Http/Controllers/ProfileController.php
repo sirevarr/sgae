@@ -26,22 +26,19 @@ class ProfileController extends Controller
 
     /**
      * Update the user's profile information.
+     * Solo actualiza campos permitidos por ProfileUpdateRequest.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
+        // fill solo con los campos validados (no hay email_verified_at en Usuario)
         $request->user()->fill($request->validated());
-
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
-        }
-
         $request->user()->save();
 
-        return Redirect::route('profile.edit');
+        return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
 
     /**
-     * Delete the user's account.
+     * Desactivar la cuenta del usuario (en SGAE no se borran, se desactivan).
      */
     public function destroy(Request $request): RedirectResponse
     {
@@ -50,10 +47,10 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
-
         Auth::logout();
 
-        $user->delete();
+        // En SGAE los usuarios no se eliminan, se desactivan
+        $user->update(['estado' => 'inactivo']);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

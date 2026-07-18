@@ -20,7 +20,7 @@ class DashboardController extends Controller
         $anioVigente = AnioEscolar::vigente();
 
         $estudiantesCount   = Matricula::activa()->count();
-        $docentesCount      = Personal::where('cargo', 'like', '%docente%')->orWhereHas('docente')->count();
+        $docentesCount      = Personal::whereHas('docente')->count();
         $seccionesCount     = $anioVigente
             ? Seccion::where('codigo_ano_escolar', $anioVigente->codigo_ano_escolar)->count()
             : 0;

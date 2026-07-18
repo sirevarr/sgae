@@ -1,109 +1,170 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { Link, usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
-import ResponsiveNavLink from '@/Components/ResponsiveNavLink.vue';
-import { Link } from '@inertiajs/vue3';
 
-const showingNavigationDropdown = ref(false);
+const showingNavigation = ref(false);
+const page = usePage();
+
+const user = computed(() => page.props.auth?.user);
+
+const navGroups = [
+    {
+        label: 'Administración',
+        color: 'sky',
+        links: [
+            { name: 'dashboard', label: 'Inicio', icon: '🏠' },
+            { name: 'institucion.index', label: 'Institución', icon: '🏫' },
+            { name: 'personal.index', label: 'Personal', icon: '👤' },
+            { name: 'usuarios.index', label: 'Usuarios', icon: '🔑' },
+        ]
+    },
+    {
+        label: 'Estructura Académica',
+        color: 'indigo',
+        links: [
+            { name: 'anios.index', label: 'Años Escolares', icon: '📅' },
+            { name: 'grados.index', label: 'Grados', icon: '📊' },
+            { name: 'menciones.index', label: 'Menciones', icon: '🎓' },
+            { name: 'materias.index', label: 'Materias', icon: '📚' },
+            { name: 'plan.index', label: 'Plan de Estudios', icon: '📋' },
+        ]
+    },
+    {
+        label: 'Gestión de Secciones',
+        color: 'violet',
+        links: [
+            { name: 'secciones.index', label: 'Secciones', icon: '🗂️' },
+            { name: 'momentos.index', label: 'Momentos Evaluativos', icon: '⏱️' },
+        ]
+    },
+    {
+        label: 'Estudiantes',
+        color: 'emerald',
+        links: [
+            { name: 'estudiantes.index', label: 'Estudiantes', icon: '🧑‍🎓' },
+            { name: 'representantes.index', label: 'Representantes', icon: '👨‍👩‍👦' },
+            { name: 'matriculas.index', label: 'Matrículas', icon: '📝' },
+        ]
+    },
+    {
+        label: 'Control Académico',
+        color: 'amber',
+        links: [
+            { name: 'evaluaciones.index', label: 'Evaluaciones', icon: '📈' },
+            { name: 'documentos.index', label: 'Documentos / PDF', icon: '🖨️' },
+            { name: 'auditoria.index', label: 'Auditoría', icon: '🔒' },
+        ]
+    },
+];
 </script>
 
 <template>
-    <div>
-        <div class="min-h-screen bg-blue-50/50"> <nav class="bg-sky-500 border-b border-sky-600 shadow-lg">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="flex justify-between h-16">
-                        <div class="flex">
-                            <div class="shrink-0 flex items-center">
-                                <Link :href="route('dashboard')">
-                                    <ApplicationLogo class="block h-12 w-auto drop-shadow-md" />
-                                </Link>
-                            </div>
+    <div class="min-h-screen bg-slate-50 flex">
 
-                            <div class="hidden space-x-8 sm:-my-px sm:ml-10 sm:flex">
-                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')" 
-                                    class="text-white font-bold hover:text-sky-100 border-transparent transition">
-                                    Inicio
-                                </NavLink>
-                                <NavLink :href="route('estudiantes.index')" :active="route().current('estudiantes.index')"
-                                    class="text-white font-bold hover:text-sky-100 border-transparent transition">
-                                    Estudiantes
-                                </NavLink>
-                                <NavLink :href="route('materias.index')" :active="route().current('materias.index')"
-                                    class="text-white font-bold hover:text-sky-100 border-transparent transition">
-                                    Materias
-                                </NavLink>
-                                <NavLink :href="route('inscripciones.index')" :active="route().current('inscripciones.index')"
-                                    class="text-white font-bold hover:text-sky-100 border-transparent transition">
-                                    Inscripciones
-                                </NavLink>
-                                <NavLink :href="route('evaluaciones.index')" :active="route().current('evaluaciones.index')"
-                                    class="text-white font-bold hover:text-sky-100 border-transparent transition">
-                                    Evaluaciones
-                                </NavLink>
-                            </div>
-                        </div>
+        <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
+        <aside class="hidden lg:flex flex-col w-64 bg-slate-900 min-h-screen shadow-2xl shrink-0">
+            <!-- Logo -->
+            <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-700">
+                <Link :href="route('dashboard')">
+                    <img src="/imagenes/SGAE.png" alt="SGAE" class="h-10 w-10 object-contain drop-shadow" />
+                </Link>
+                <div>
+                    <div class="text-white font-black text-lg leading-tight tracking-tight">SGAE</div>
+                    <div class="text-slate-400 text-[9px] uppercase tracking-widest font-semibold">Gestión Académica</div>
+                </div>
+            </div>
 
-                        <div class="hidden sm:flex sm:items-center sm:ms-6">
-                            <div class="ms-3 relative">
-                                <Dropdown align="right" width="48">
-                                    <template #trigger>
-                                        <span class="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm leading-4 font-bold rounded-md text-sky-700 bg-white hover:bg-sky-50 focus:outline-none transition ease-in-out duration-150 shadow-sm"
-                                            >
-                                                {{ $page.props.auth.user.name }}
-                                                <svg class="ms-2 -me-0.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        </span>
-                                    </template>
-
-                                    <template #content>
-                                        <DropdownLink :href="route('profile.edit')"> Perfil </DropdownLink>
-                                        <DropdownLink :href="route('logout')" method="post" as="button">
-                                            Cerrar Sesión
-                                        </DropdownLink>
-                                    </template>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div class="-me-2 flex items-center sm:hidden">
-                            <button
-                                @click="showingNavigationDropdown = !showingNavigationDropdown"
-                                class="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-sky-600 focus:outline-none transition"
+            <!-- Nav grupos -->
+            <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-4">
+                <template v-for="group in navGroups" :key="group.label">
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 px-2 mb-1.5">{{ group.label }}</p>
+                        <div class="space-y-0.5">
+                            <Link
+                                v-for="link in group.links"
+                                :key="link.name"
+                                :href="route(link.name)"
+                                :class="[
+                                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-150',
+                                    route().current(link.name)
+                                        ? 'bg-sky-600 text-white shadow-md'
+                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                ]"
                             >
-                                <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                                    <path :class="{ hidden: showingNavigationDropdown, 'inline-flex': !showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                                    <path :class="{ hidden: !showingNavigationDropdown, 'inline-flex': showingNavigationDropdown }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
+                                <span class="text-base leading-none">{{ link.icon }}</span>
+                                <span>{{ link.label }}</span>
+                            </Link>
                         </div>
                     </div>
-                </div>
-
-                <div :class="{ block: showingNavigationDropdown, hidden: !showingNavigationDropdown }" class="sm:hidden bg-sky-600">
-                    <div class="pt-2 pb-3 space-y-1">
-                        <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')" class="text-white"> Inicio </ResponsiveNavLink>
-                        <ResponsiveNavLink :href="route('estudiantes.index')" :active="route().current('estudiantes.index')" class="text-white"> Estudiantes </ResponsiveNavLink>
-                        </div>
-                </div>
+                </template>
             </nav>
 
-            <header class="bg-white shadow-sm border-b border-sky-100" v-if="$slots.header">
-                <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                    <div class="text-sky-900 font-extrabold">
-                        <slot name="header" />
+            <!-- Usuario en la parte inferior -->
+            <div class="border-t border-slate-700 px-4 py-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0">
+                        {{ user?.codigo_usuario?.[0]?.toUpperCase() ?? 'U' }}
                     </div>
+                    <div class="min-w-0">
+                        <p class="text-white text-xs font-bold truncate">{{ user?.codigo_usuario }}</p>
+                        <p class="text-slate-400 text-[10px] capitalize">{{ user?.rol }}</p>
+                    </div>
+                </div>
+                <Link
+                    :href="route('logout')"
+                    method="post"
+                    as="button"
+                    class="mt-3 w-full text-center text-xs text-slate-400 hover:text-red-400 transition-colors font-semibold"
+                >
+                    Cerrar sesión
+                </Link>
+            </div>
+        </aside>
+
+        <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────────── -->
+        <div class="flex-1 flex flex-col min-w-0">
+
+            <!-- Topbar móvil -->
+            <header class="lg:hidden bg-slate-900 px-4 py-3 flex items-center justify-between shadow-lg">
+                <div class="flex items-center gap-2">
+                    <img src="/imagenes/SGAE.png" alt="SGAE" class="h-8 w-8 object-contain" />
+                    <span class="text-white font-black text-lg">SGAE</span>
+                </div>
+                <button @click="showingNavigation = !showingNavigation" class="text-slate-300 hover:text-white p-1">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            :d="showingNavigation ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'" />
+                    </svg>
+                </button>
+            </header>
+
+            <!-- Menú móvil desplegable -->
+            <div v-if="showingNavigation" class="lg:hidden bg-slate-800 border-b border-slate-700 px-4 py-3 space-y-2">
+                <template v-for="group in navGroups" :key="group.label + '_m'">
+                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 pt-2">{{ group.label }}</p>
+                    <Link
+                        v-for="link in group.links"
+                        :key="link.name + '_m'"
+                        :href="route(link.name)"
+                        @click="showingNavigation = false"
+                        class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-300 hover:text-white hover:bg-slate-700 text-sm font-medium transition"
+                    >
+                        <span>{{ link.icon }}</span>
+                        <span>{{ link.label }}</span>
+                    </Link>
+                </template>
+            </div>
+
+            <!-- Header de página (slot) -->
+            <header v-if="$slots.header" class="bg-white border-b border-slate-200 shadow-sm">
+                <div class="max-w-7xl mx-auto px-6 py-4">
+                    <slot name="header" />
                 </div>
             </header>
 
-            <main>
+            <!-- Main content -->
+            <main class="flex-1 p-6">
                 <slot />
             </main>
         </div>

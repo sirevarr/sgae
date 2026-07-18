@@ -4,75 +4,41 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Materia;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class MateriaController extends Controller
 {
-    public function index(Request $request)
+    public function index(): JsonResponse
     {
-        $buscar = $request->query('buscar');
-        $materias = Materia::when($buscar, function ($query, $buscar) {
-            return $query->where('nombre', 'like', "%{$buscar}%")
-                         ->orWhere('codigo_materia', 'like', "%{$buscar}%");
-        })->get();
-
-        return response()->json(['success' => true, 'data' => $materias]);
+        return response()->json(Materia::orderBy('nombre')->get());
     }
 
-    public function store(Request $request)
+    public function show(string $siglas): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'codigo_materia' => 'required|string|max:20|unique:materias',
-            'nombre' => 'required|string|max:150',
-            'creditos' => 'required|integer|min:1',
-            'descripcion' => 'nullable|string',
-            'estado' => 'required|in:activa,inactiva'
+        return response()->json(Materia::findOrFail($siglas));
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'siglas'         => 'required|string|max:10|unique:Materia,siglas',
+            'nombre'         => 'required|string|max:200',
+            'area_formacion' => 'nullable|string|max:100',
         ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $materia = Materia::create($request->all());
-        return response()->json(['success' => true, 'data' => $materia], 201);
-    }
-    
-        // Actualizar una materia
-    public function update(Request $request, $id)
-    {
-        $materia = Materia::find($id);
-
-        if (!$materia) {
-            return response()->json(['success' => false, 'message' => 'Materia no encontrada'], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nombre'   => 'required|string|max:150',
-            'creditos' => 'required|integer|min:1',
-            'estado'   => 'required|in:activa,inactiva'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
-        }
-
-        $materia->update($request->all());
-
-        return response()->json(['success' => true, 'data' => $materia]);
+        return response()->json(Materia::create($data), 201);
     }
 
-    // Eliminar una materia
-    public function destroy($id)
+    public function update(Request $request, string $siglas): JsonResponse
     {
-        $materia = Materia::find($id);
+        $materia = Materia::findOrFail($siglas);
+        $materia->update($request->only(['nombre', 'area_formacion']));
+        return response()->json($materia->fresh());
+    }
 
-        if (!$materia) {
-            return response()->json(['success' => false, 'message' => 'Materia no encontrada'], 404);
-        }
-
-        $materia->delete();
-
-        return response()->json(['success' => true, 'message' => 'Materia eliminada']);
+    public function destroy(string $siglas): JsonResponse
+    {
+        Materia::findOrFail($siglas)->delete();
+        return response()->json(['message' => 'Materia eliminada.']);
     }
 }

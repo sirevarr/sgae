@@ -2,61 +2,105 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Usuario;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\Rule|array|string>
+     * Reglas de validación: usa 'codigo_usuario' en lugar de 'email'.
      */
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'codigo_usuario' => ['required', 'string'],
+            'password'       => ['required', 'string'],
         ];
     }
 
     /**
-     * Attempt to authenticate the request's credentials.
+     * Intenta autenticar con la tabla Usuario de prueba2.
+     * Maneja estados: activo/inactivo/bloqueado e intentos_fallidos.
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws ValidationException
      */
     public function authenticate(): void
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        $codigo  = $this->string('codigo_usuario')->toString();
+        $usuario = Usuario::where('codigo_usuario', $codigo)->first();
 
+        // Verificar existencia y estado
+        if (! $usuario) {
+            RateLimiter::hit($this->throttleKey());
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'codigo_usuario' => __('Las credenciales proporcionadas no coinciden con nuestros registros.'),
             ]);
+        }
+
+        if ($usuario->estado !== 'activo') {
+            throw ValidationException::withMessages([
+                'codigo_usuario' => __('Tu cuenta está ' . $usuario->estado . '. Contacta al administrador.'),
+            ]);
+        }
+
+        // Verificar contraseña
+        if (! Hash::check($this->string('password')->toString(), $usuario->clave_hash)) {
+            // Incrementar intentos fallidos
+            $usuario->increment('intentos_fallidos');
+
+            // Bloquear cuenta después de 5 intentos fallidos
+            if ($usuario->intentos_fallidos >= 5) {
+                $usuario->update(['estado' => 'bloqueado']);
+                throw ValidationException::withMessages([
+                    'codigo_usuario' => __('Tu cuenta ha sido bloqueada por demasiados intentos fallidos.'),
+                ]);
+            }
+
+            RateLimiter::hit($this->throttleKey());
+            throw ValidationException::withMessages([
+                'codigo_usuario' => __('Las credenciales proporcionadas no coinciden con nuestros registros.'),
+            ]);
+        }
+
+        // Login exitoso: resetear intentos fallidos y registrar acceso
+        $usuario->update([
+            'intentos_fallidos' => 0,
+            'ultimo_acceso'     => now()->toDateString(),
+        ]);
+
+        Auth::login($usuario, $this->boolean('remember'));
+
+        // Registrar en tabla Login
+        try {
+            \App\Models\LoginRecord::create([
+                'id_usuario'  => $usuario->id_usuario,
+                'fecha'       => now()->toDateString(),
+                'hora'        => now()->toTimeString(),
+                'ip_acceso'   => $this->ip(),
+                'tipo_acceso' => 'E',
+                'exitoso'     => true,
+            ]);
+        } catch (\Throwable $e) {
+            // No interrumpir el login si el log falla
+            \Log::warning('No se pudo registrar login: ' . $e->getMessage());
         }
 
         RateLimiter::clear($this->throttleKey());
     }
 
-    /**
-     * Ensure the login request is not rate limited.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
     public function ensureIsNotRateLimited(): void
     {
         if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
@@ -68,18 +112,15 @@ class LoginRequest extends FormRequest
         $seconds = RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
+            'codigo_usuario' => trans('auth.throttle', [
                 'seconds' => $seconds,
                 'minutes' => ceil($seconds / 60),
             ]),
         ]);
     }
 
-    /**
-     * Get the rate limiting throttle key for the request.
-     */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower($this->string('codigo_usuario')) . '|' . $this->ip());
     }
 }

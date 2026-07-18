@@ -16,4 +16,9 @@ npm-debug.log
 yarn-error.log
 /.fleet
 /.idea
-/.vscode
+
+/pdo_sqlsrv.zip
+/pdo_sqlsrv/
+/query
+vite.config.js.timestamp*
+*.mjs

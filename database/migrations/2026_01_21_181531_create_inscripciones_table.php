@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('periodo', 20); 
             $table->string('seccion', 50); 
             $table->date('fecha_inscripcion');
-            $table->enum('estado', ['activa', 'retirada'])->default('activa');
+            $table->string('estado', 20)->default('activa');
             $table->timestamps();
         });
     }

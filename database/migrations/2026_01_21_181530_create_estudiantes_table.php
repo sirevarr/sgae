@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('direccion')->nullable();
             $table->string('email', 150)->unique()->nullable();
             $table->string('telefono', 20)->nullable();
-            $table->enum('estado', ['activo', 'inactivo', 'graduado', 'retirado'])->default('activo');
+            $table->string('estado', 20)->default('activo');
             $table->timestamps();
             
             // Índices para búsquedas

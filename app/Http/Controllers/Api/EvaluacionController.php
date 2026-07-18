@@ -4,205 +4,225 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Evaluacion;
-use App\Models\Inscripcion;
+use App\Models\Matricula;
+use App\Models\MateriaPendiente;
+use App\Models\ParametroSistema;
+use App\Models\PlanEstudios;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 
 class EvaluacionController extends Controller
 {
-    public function index()
-    {
-        $grado = request()->query('grado');
-        $seccion = request()->query('seccion');
-        $estado = request()->query('estado');
-        $periodo = request()->query('periodo');
-
-        $query = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->latest();
-
-        if (!empty($grado)) {
-            $query->whereHas('inscripcion', function($q) use ($grado) {
-                $q->where('grado', $grado);
-            });
-        }
-
-        if (!empty($seccion)) {
-            $query->whereHas('inscripcion', function($q) use ($seccion) {
-                $q->where('seccion', $seccion);
-            });
-        }
-
-        if (!empty($periodo)) {
-            $query->whereHas('inscripcion', function($q) use ($periodo) {
-                $q->where('periodo', $periodo);
-            });
-        }
-
-        if (!empty($estado)) {
-            $query->where('estado', $estado);
-        }
-
-        $evaluaciones = $query->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $evaluaciones
-        ]);
-    }
-
-    public function store(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'inscripcion_id' => 'required|exists:inscripciones,id|unique:evaluaciones',
-            'nota_parcial1' => 'nullable|numeric|min:0|max:20',
-            'nota_parcial2' => 'nullable|numeric|min:0|max:20',
-            'nota_final' => 'nullable|numeric|min:0|max:20',
-            'fecha' => 'required|date',
-            'estado' => 'required|string',
-            'promedio' => 'required|numeric',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        // VALIDAR QUE LA INSCRIPCIÓN ESTÉ ACTIVA
-        $inscripcion = Inscripcion::find($request->inscripcion_id);
-        if ($inscripcion && strtolower($inscripcion->estado) !== 'activa') {
-            return response()->json([
-                'success' => false,
-                'error' => 'No se puede registrar evaluación para una inscripción inactiva.'
-            ], 422);
-        }
-
-        $evaluacion = Evaluacion::create($request->all());
-        $evaluacion->load(['inscripcion.estudiante', 'inscripcion.materia']);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Evaluación creada con éxito',
-            'data' => $evaluacion
-        ], 201);
-    }
-
-    public function show($id)
-    {
-        $evaluacion = Evaluacion::with(['inscripcion.estudiante', 'inscripcion.materia'])->find($id);
-
-        if (!$evaluacion) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Evaluación no encontrada'
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $evaluacion
-        ]);
-    }
-
-    public function update(Request $request, $id)
-    {
-        // Usar find() en lugar de findOrFail para personalizar la respuesta
-        $evaluacion = Evaluacion::find($id);
-
-        if (!$evaluacion) {
-            return response()->json([
-                'success' => false,
-                'message' => "Error: No existe la evaluación con ID: $id"
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'nota_parcial1' => 'nullable|numeric|min:0|max:20',
-            'nota_parcial2' => 'nullable|numeric|min:0|max:20',
-            'nota_final' => 'nullable|numeric|min:0|max:20',
-            'promedio' => 'required|numeric',
-            'estado' => 'required|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $evaluacion->fill($request->all());
-        $evaluacion->estado = strtolower(trim($request->estado));
-        $evaluacion->save();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Evaluación actualizada con éxito',
-            'data' => $evaluacion->load(['inscripcion.estudiante', 'inscripcion.materia'])
-        ]);
-    }
-
-    public function destroy($id)
-    {
-        $evaluacion = Evaluacion::find($id);
-
-        if (!$evaluacion) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Evaluación no encontrada'
-            ], 404);
-        }
-
-        $evaluacion->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Evaluación eliminada con éxito'
-        ]);
-    }
-
-    // PDF report generation removed per project policy
-
     /**
-     * HISTORIAL ACADÉMICO POR ESTUDIANTE
+     * Obtener evaluaciones — filtrar por sección, año escolar y momento.
+     * Devuelve una matriz pivotada por estudiante con sus notas.
      */
-    public function reporteAcademico($estudianteId)
+    public function index(Request $request): JsonResponse
     {
-        $inscripciones = Inscripcion::with(['materia', 'evaluacion'])
-            ->where('estudiante_id', $estudianteId)
-            ->where('estado', 'activa') // INSCRIPCIONES ACTIVAS
+        $request->validate([
+            'codigo_seccion'     => 'required|string',
+            'codigo_ano_escolar' => 'required|string',
+            'numero_momento'     => 'nullable|integer|in:1,2,3',
+        ]);
+
+        // Obtener estudiantes matriculados en la sección
+        $matriculas = Matricula::activa()
+            ->where('codigo_seccion', $request->codigo_seccion)
+            ->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->with('estudiante')
+            ->orderBy('numero_lista')
             ->get();
 
-        $materiasConCalificacion = $inscripciones->filter(fn($i) => $i->evaluacion !== null);
-        $promedioGeneral = $materiasConCalificacion->avg(fn($i) => $i->evaluacion->promedio);
+        // Obtener plan de estudios de la sección
+        $seccionModel = \App\Models\Seccion::findOrFail($request->codigo_seccion);
 
-        $reporte = [
-            'estudiante_id' => $estudianteId,
-            'total_materias' => $inscripciones->count(),
-            'promedio_general' => round($promedioGeneral, 2),
-            'detalle' => $materiasConCalificacion->map(fn($i) => [
-                'materia' => $i->materia->nombre,
-                'promedio' => $i->evaluacion->promedio,
-                'estado' => $i->evaluacion->estado,
-            ])
-        ];
+        $plan = PlanEstudios::with('materia')
+            ->where('codigo_grado', $seccionModel->codigo_grado)
+            ->where('id_mencion', $seccionModel->id_mencion)
+            ->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->get();
 
-        return response()->json(['success' => true, 'data' => $reporte]);
+        // Obtener evaluaciones existentes
+        $evalQuery = Evaluacion::where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->whereIn('cedula_estudiante', $matriculas->pluck('cedula_estudiante'));
+
+        if ($request->numero_momento) {
+            $evalQuery->where('numero_momento', $request->numero_momento);
+        }
+
+        $evaluaciones = $evalQuery->get()->groupBy(['cedula_estudiante', 'siglas_materia']);
+
+        return response()->json([
+            'matriculas'   => $matriculas,
+            'plan'         => $plan,
+            'evaluaciones' => $evaluaciones,
+            'nota_minima'  => ParametroSistema::notaMinima(),
+        ]);
     }
 
     /**
-     * Útil para cargar el selector de inscripciones en el frontend
+     * Guardar / actualizar una nota individual.
      */
-    public function inscripcionesPorEstudiante($estudianteId)
+    public function guardar(Request $request): JsonResponse
     {
-        $inscripciones = Inscripcion::with('materia')
-            ->where('estudiante_id', $estudianteId)
-            ->where('estado', 'activa') // SOLO ACTIVAS
-            ->get();
+        $data = $request->validate([
+            'cedula_estudiante'       => 'required|string|exists:Estudiante,cedula_estudiante',
+            'siglas_materia'          => 'required|string|exists:Materia,siglas',
+            'id_mencion'              => 'required|integer',
+            'codigo_grado'            => 'required|string',
+            'codigo_ano_escolar'      => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
+            'numero_momento'          => 'required|integer|in:1,2,3',
+            'nota'                    => 'required|numeric|min:0|max:20',
+            'cedula_docente_evaluador' => 'nullable|integer|exists:Docente,cedula_personal',
+            'es_revision'             => 'sometimes|boolean',
+            'motivo_modificacion'     => 'nullable|string',
+        ]);
+
+        $evaluacion = Evaluacion::updateOrCreate(
+            [
+                'cedula_estudiante'  => $data['cedula_estudiante'],
+                'siglas_materia'     => $data['siglas_materia'],
+                'id_mencion'         => $data['id_mencion'],
+                'codigo_grado'       => $data['codigo_grado'],
+                'codigo_ano_escolar' => $data['codigo_ano_escolar'],
+                'numero_momento'     => $data['numero_momento'],
+            ],
+            [
+                'nota'                     => $data['nota'],
+                'fecha_evaluacion'         => now()->toDateString(),
+                'cedula_docente_evaluador' => $data['cedula_docente_evaluador'] ?? null,
+                'es_revision'              => $data['es_revision'] ?? false,
+                'fecha_modificacion'       => now()->toDateString(),
+                'motivo_modificacion'      => $data['motivo_modificacion'] ?? null,
+            ]
+        );
 
         return response()->json([
-            'success' => true,
-            'data' => $inscripciones
+            'evaluacion' => $evaluacion,
+            'resultado'  => $evaluacion->resultado,
+        ]);
+    }
+
+    /**
+     * Guardar evaluaciones en lote para toda una sección / momento.
+     * Body: { notas: [ {cedula_estudiante, siglas_materia, nota, ...}, ... ] }
+     */
+    public function guardarLote(Request $request): JsonResponse
+    {
+        $request->validate([
+            'notas'                  => 'required|array|min:1',
+            'notas.*.cedula_estudiante' => 'required|string',
+            'notas.*.siglas_materia'    => 'required|string',
+            'notas.*.id_mencion'        => 'required|integer',
+            'notas.*.codigo_grado'      => 'required|string',
+            'notas.*.codigo_ano_escolar' => 'required|string',
+            'notas.*.numero_momento'    => 'required|integer|in:1,2,3',
+            'notas.*.nota'              => 'required|numeric|min:0|max:20',
+        ]);
+
+        DB::transaction(function () use ($request) {
+            foreach ($request->notas as $item) {
+                Evaluacion::updateOrCreate(
+                    [
+                        'cedula_estudiante'  => $item['cedula_estudiante'],
+                        'siglas_materia'     => $item['siglas_materia'],
+                        'id_mencion'         => $item['id_mencion'],
+                        'codigo_grado'       => $item['codigo_grado'],
+                        'codigo_ano_escolar' => $item['codigo_ano_escolar'],
+                        'numero_momento'     => $item['numero_momento'],
+                    ],
+                    [
+                        'nota'             => $item['nota'],
+                        'fecha_evaluacion' => now()->toDateString(),
+                    ]
+                );
+            }
+        });
+
+        return response()->json(['message' => count($request->notas) . ' notas guardadas.']);
+    }
+
+    /**
+     * Resumen de rendimiento por sección al finalizar todos los momentos.
+     * Calcula promedios finales y determina aprobados/reprobados.
+     */
+    public function resumenSeccion(Request $request): JsonResponse
+    {
+        $request->validate([
+            'codigo_seccion'     => 'required|string',
+            'codigo_ano_escolar' => 'required|string',
+        ]);
+
+        $seccionModel = \App\Models\Seccion::with(['grado', 'mencion'])->findOrFail($request->codigo_seccion);
+
+        $matriculas = Matricula::activa()
+            ->where('codigo_seccion', $request->codigo_seccion)
+            ->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->with('estudiante')
+            ->orderBy('numero_lista')
+            ->get();
+
+        $plan = PlanEstudios::with('materia')
+            ->where('codigo_grado', $seccionModel->codigo_grado)
+            ->where('id_mencion', $seccionModel->id_mencion)
+            ->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->get();
+
+        $evaluaciones = Evaluacion::where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->whereIn('cedula_estudiante', $matriculas->pluck('cedula_estudiante'))
+            ->get()
+            ->groupBy(['cedula_estudiante', 'siglas_materia']);
+
+        $notaMinima = ParametroSistema::notaMinima();
+        $resumen    = [];
+
+        foreach ($matriculas as $matricula) {
+            $cedula     = $matricula->cedula_estudiante;
+            $filaEst    = [];
+            $promedios  = [];
+
+            foreach ($plan as $pe) {
+                $siglas  = $pe->siglas_materia;
+                $notas   = [];
+
+                for ($m = 1; $m <= 3; $m++) {
+                    $notas[$m] = $evaluaciones[$cedula][$siglas]
+                        ?->firstWhere('numero_momento', $m)
+                        ?->nota;
+                }
+
+                $notaFinal = array_filter($notas) ? round(array_sum(array_filter($notas)) / count(array_filter($notas)), 2) : null;
+                $resultado = $notaFinal !== null ? ($notaFinal >= $notaMinima ? 'A' : 'R') : 'P';
+
+                $filaEst[$siglas] = [
+                    'm1'     => $notas[1],
+                    'm2'     => $notas[2],
+                    'm3'     => $notas[3],
+                    'final'  => $notaFinal,
+                    'resultado' => $resultado,
+                ];
+
+                if ($notaFinal !== null) {
+                    $promedios[] = $notaFinal;
+                }
+            }
+
+            $promedioGral = count($promedios) ? round(array_sum($promedios) / count($promedios), 2) : null;
+
+            $resumen[] = [
+                'estudiante'     => $matricula->estudiante,
+                'numero_lista'   => $matricula->numero_lista,
+                'materias'       => $filaEst,
+                'promedio_gral'  => $promedioGral,
+            ];
+        }
+
+        return response()->json([
+            'seccion'    => $seccionModel,
+            'plan'       => $plan,
+            'resumen'    => $resumen,
+            'nota_minima' => $notaMinima,
         ]);
     }
 }

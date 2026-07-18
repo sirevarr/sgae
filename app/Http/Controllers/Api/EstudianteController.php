@@ -4,169 +4,106 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Estudiante;
+use App\Models\FichaAntropometrica;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 
 class EstudianteController extends Controller
 {
-    // GET /api/estudiantes
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $query = Estudiante::query();
+        $q = Estudiante::with('matriculaActual.seccion.grado')
+            ->when($request->buscar, fn($query) => $query->buscar($request->buscar))
+            ->when($request->estado, fn($query) => $query->where('estado_estudiante', $request->estado))
+            ->orderBy('apellidos')
+            ->paginate(25);
 
-        // Búsqueda avanzada (Cédula, Nombre o Apellido)
-        if ($request->has('buscar') && $request->buscar != '') {
-            $buscar = $request->buscar;
-            $query->where(function($q) use ($buscar) {
-                $q->where('cedula', 'like', "%$buscar%")
-                  ->orWhere('nombres', 'like', "%$buscar%")
-                  ->orWhere('apellidos', 'like', "%$buscar%");
-            });
-        }
-
-        // Filtro por estado
-        if ($request->has('estado') && $request->estado != '') {
-            $query->where('estado', $request->estado);
-        }
-
-        // Filtro por grado
-        if ($request->has('grado') && $request->grado != '') {
-            $query->where('grado', $request->grado);
-        }
-
-        $estudiantes = $query->orderBy('apellidos')->get();
-
-        return response()->json([
-            'success' => true,
-            'data' => $estudiantes
-        ]);
+        return response()->json($q);
     }
 
-    // POST /api/estudiantes
-    public function store(Request $request)
+    public function show(string $cedula): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'cedula' => 'required|string|max:20|unique:estudiantes',
-            'nombres' => 'required|string|max:100',
-            'apellidos' => 'required|string|max:100',
-            'genero' => 'required|in:M,F',
-            'fecha_nacimiento' => 'required|date',
-            'grado' => 'required|string',
-            'seccion' => 'required|string',
-            'email' => 'nullable|email|unique:estudiantes',
-            'telefono' => 'nullable|string|max:20',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $data = $request->all();
-        // Normaliza el estado (usar minúsculas coherentes con la BD)
-        if (!isset($data['estado'])) {
-            $data['estado'] = 'activo';
-        } else {
-            $data['estado'] = strtolower($data['estado']);
-        }
-
-        $estudiante = Estudiante::create($data);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Estudiante creado exitosamente',
-            'data' => $estudiante
-        ], 201);
+        return response()->json(
+            Estudiante::with([
+                'matriculas.seccion.grado',
+                'matriculas.anioEscolar',
+                'fichasAntropometricas',
+                'materiasPendientes.materia',
+            ])->findOrFail($cedula)
+        );
     }
 
-    // GET /api/estudiantes/{id}
-    public function show($id)
+    public function store(Request $request): JsonResponse
     {
-        // Trae al estudiante con sus relaciones para ver su historial
-        $estudiante = Estudiante::with(['inscripciones.materia', 'inscripciones.evaluacion'])
-            ->find($id);
-
-        if (!$estudiante) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Estudiante no encontrado'
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $estudiante
+        $data = $request->validate([
+            'cedula_estudiante'    => 'required|string|max:20|unique:Estudiante,cedula_estudiante',
+            'tipo_documento'       => 'required|string|in:V,E',
+            'nacionalidad'         => 'required|string|max:20',
+            'nombres'              => 'required|string|max:200',
+            'apellidos'            => 'required|string|max:200',
+            'genero'               => 'required|string|in:M,F',
+            'fecha_nacimiento'     => 'nullable|date',
+            'lugar_nacimiento'     => 'nullable|string|max:200',
+            'estado_nacimiento'    => 'nullable|string|max:100',
+            'municipio_nacimiento' => 'nullable|string|max:100',
+            'direccion'            => 'nullable|string|max:500',
+            'telefono'             => 'nullable|string|max:30',
+            'correo'               => 'nullable|email|max:200',
+            'condiciones_medicas'  => 'nullable|string',
+            'medicamentos'         => 'nullable|string',
+            'fecha_ingreso'        => 'nullable|date',
+            'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado,trasladado',
         ]);
+
+        $data['estado_estudiante'] ??= 'activo';
+        return response()->json(Estudiante::create($data), 201);
     }
 
-    // PUT /api/estudiantes/{id}
-    public function update(Request $request, $id)
+    public function update(Request $request, string $cedula): JsonResponse
     {
-        $estudiante = Estudiante::find($id);
+        $estudiante = Estudiante::findOrFail($cedula);
 
-        if (!$estudiante) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Estudiante no encontrado'
-            ], 404);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'cedula' => 'required|string|max:20|unique:estudiantes,cedula,' . $id,
-            'nombres' => 'required|string|max:100',
-            'apellidos' => 'required|string|max:100',
-            'genero' => 'required|in:M,F',
-            'grado' => 'required|string',
-            'seccion' => 'required|string',
-            'fecha_nacimiento' => 'required|date',
-            'email' => 'nullable|email|unique:estudiantes,email,' . $id,
+        $data = $request->validate([
+            'nombres'              => 'sometimes|string|max:200',
+            'apellidos'            => 'sometimes|string|max:200',
+            'genero'               => 'sometimes|string|in:M,F',
+            'fecha_nacimiento'     => 'sometimes|nullable|date',
+            'lugar_nacimiento'     => 'sometimes|nullable|string',
+            'estado_nacimiento'    => 'sometimes|nullable|string',
+            'municipio_nacimiento' => 'sometimes|nullable|string',
+            'direccion'            => 'sometimes|nullable|string',
+            'telefono'             => 'sometimes|nullable|string|max:30',
+            'correo'               => 'sometimes|nullable|email',
+            'condiciones_medicas'  => 'sometimes|nullable|string',
+            'medicamentos'         => 'sometimes|nullable|string',
+            'estado_estudiante'    => 'sometimes|string',
+            'fecha_retiro'         => 'sometimes|nullable|date',
+            'motivo_retiro'        => 'sometimes|nullable|string',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $estudiante->update($request->all());
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Estudiante actualizado exitosamente',
-            'data' => $estudiante
-        ]);
+        $estudiante->update($data);
+        return response()->json($estudiante->fresh());
     }
 
-    // DELETE /api/estudiantes/{id}
-    public function destroy($id)
+    public function fichaAntropometrica(Request $request, string $cedula): JsonResponse
     {
-        try {
-            $estudiante = Estudiante::find($id);
+        Estudiante::findOrFail($cedula);
 
-            if (!$estudiante) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Estudiante no encontrado'
-                ], 404);
-            }
+        $data = $request->validate([
+            'codigo_ano_escolar' => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
+            'estatura'           => 'nullable|numeric|min:0.3|max:2.5',
+            'peso'               => 'nullable|numeric|min:1|max:250',
+            'talla_camisa'       => 'nullable|string|max:10',
+            'talla_pantalon'     => 'nullable|string|max:10',
+            'talla_zapatos'      => 'nullable|string|max:10',
+            'fecha_medicion'     => 'nullable|date',
+        ]);
 
-            // Intentar eliminar
-            $estudiante->delete();
+        $ficha = FichaAntropometrica::updateOrCreate(
+            ['cedula_estudiante' => $cedula, 'codigo_ano_escolar' => $data['codigo_ano_escolar']],
+            $data
+        );
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Estudiante eliminado exitosamente'
-            ]);
-
-        } catch (\Illuminate\Database\QueryException $e) {
-            // Este error ocurre si el estudiante tiene notas o inscripciones (FK Constraint)
-            return response()->json([
-                'success' => false,
-                'message' => 'No se puede eliminar: El estudiante tiene registros de inscripciones o notas vinculadas.'
-            ], 422);
-        }
+        return response()->json($ficha, 201);
     }
 }

@@ -1,23 +1,17 @@
 <script setup>
-import Checkbox from '@/Components/Checkbox.vue';
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps({
-    canResetPassword: {
-        type: Boolean,
-    },
-    status: {
-        type: String,
-    },
+    status: { type: String },
 });
 
 const form = useForm({
-    email: '',
+    codigo_usuario: '',
     password: '',
     remember: false,
 });
@@ -31,64 +25,80 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Log in" />
+        <Head title="Iniciar Sesión — SGAE" />
 
-        <div v-if="status" class="mb-4 font-medium text-sm text-green-600">
+        <!-- Banner SGAE -->
+        <div class="text-center mb-8">
+            <div class="flex justify-center mb-4">
+                <img src="/imagenes/SGAE.png" alt="SGAE" class="h-20 drop-shadow-xl" />
+            </div>
+            <h1 class="text-3xl font-black text-sky-700 uppercase tracking-tight">SGAE</h1>
+            <p class="text-xs text-sky-500 font-semibold uppercase tracking-widest mt-1">
+                Sistema de Gestión Académica Escolar
+            </p>
+        </div>
+
+        <div v-if="status" class="mb-4 font-medium text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200">
             {{ status }}
         </div>
 
-        <form @submit.prevent="submit">
+        <form @submit.prevent="submit" class="space-y-5">
             <div>
-                <InputLabel for="email" value="Email" />
-
+                <InputLabel for="codigo_usuario" value="Código de Usuario" class="text-sky-800 font-bold" />
                 <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
+                    id="codigo_usuario"
+                    type="text"
+                    class="mt-1 block w-full border-sky-200 focus:border-sky-500 focus:ring-sky-500 rounded-xl"
+                    v-model="form.codigo_usuario"
                     required
                     autofocus
                     autocomplete="username"
+                    placeholder="Ej: admin01"
                 />
-
-                <InputError class="mt-2" :message="form.errors.email" />
+                <InputError class="mt-2" :message="form.errors.codigo_usuario" />
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Password" />
-
+            <div>
+                <InputLabel for="password" value="Contraseña" class="text-sky-800 font-bold" />
                 <TextInput
                     id="password"
                     type="password"
-                    class="mt-1 block w-full"
+                    class="mt-1 block w-full border-sky-200 focus:border-sky-500 focus:ring-sky-500 rounded-xl"
                     v-model="form.password"
                     required
                     autocomplete="current-password"
+                    placeholder="••••••••"
                 />
-
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div class="block mt-4">
-                <label class="flex items-center">
-                    <Checkbox name="remember" v-model:checked="form.remember" />
-                    <span class="ms-2 text-sm text-gray-600">Remember me</span>
+            <div class="flex items-center justify-between pt-2">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                        type="checkbox"
+                        v-model="form.remember"
+                        class="rounded border-sky-300 text-sky-600 focus:ring-sky-500"
+                    />
+                    <span class="text-sm text-gray-600">Recordarme</span>
                 </label>
-            </div>
 
-            <div class="flex items-center justify-end mt-4">
-                <Link
-                    v-if="canResetPassword"
-                    :href="route('password.request')"
-                    class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                <button
+                    type="submit"
+                    :disabled="form.processing"
+                    class="inline-flex items-center gap-2 px-6 py-2.5 bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white font-bold text-sm rounded-xl transition-all duration-150 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                    Forgot your password?
-                </Link>
-
-                <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Log in
-                </PrimaryButton>
+                    <svg v-if="form.processing" class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                    </svg>
+                    {{ form.processing ? 'Ingresando...' : 'Ingresar' }}
+                </button>
             </div>
         </form>
+
+        <!-- Footer institucional -->
+        <p class="text-center text-xs text-gray-400 mt-8">
+            Sistema académico institucional &middot; Acceso restringido
+        </p>
     </GuestLayout>
 </template>

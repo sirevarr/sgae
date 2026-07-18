@@ -2,47 +2,85 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Evaluacion extends Model
 {
-    use HasFactory;
-
-    protected $table = 'evaluaciones';
+    protected $table = 'Evaluacion';
+    protected $primaryKey = 'id_evaluacion';
+    public $incrementing = true;
+    public $timestamps = false;
 
     protected $fillable = [
-        'inscripcion_id',
-        'nota_parcial1',
-        'nota_parcial2',
-        'nota_final',
-        'promedio',
-        'estado',
-        'fecha',
-        'observaciones'
+        'cedula_estudiante',
+        'siglas_materia',
+        'id_mencion',
+        'codigo_grado',
+        'codigo_ano_escolar',
+        'numero_momento',
+        'nota',
+        'fecha_evaluacion',
+        'es_revision',
+        'cedula_docente_evaluador',
+        'fecha_modificacion',
+        'motivo_modificacion',
     ];
 
-    // Relación con Inscripción
-    public function inscripcion()
+    protected $casts = [
+        'nota'                    => 'float',
+        'es_revision'             => 'boolean',
+        'fecha_evaluacion'        => 'date',
+        'fecha_modificacion'      => 'date',
+        'id_mencion'              => 'integer',
+        'numero_momento'          => 'integer',
+        'cedula_docente_evaluador' => 'integer',
+    ];
+
+    public function estudiante()
     {
-        return $this->belongsTo(Inscripcion::class, 'inscripcion_id');
+        return $this->belongsTo(Estudiante::class, 'cedula_estudiante', 'cedula_estudiante');
     }
 
-    //Se ejecuta antes de guardar en la BD
-    protected static function boot()
+    public function materia()
     {
-        parent::boot();
+        return $this->belongsTo(Materia::class, 'siglas_materia', 'siglas');
+    }
 
-        static::saving(function ($model) {
-            $p1 = $model->nota_parcial1 ?? 0;
-            $p2 = $model->nota_parcial2 ?? 0;
-            $nf = $model->nota_final ?? 0;
+    public function grado()
+    {
+        return $this->belongsTo(Grado::class, 'codigo_grado', 'codigo_grado');
+    }
 
-            // Calculo promedio (Escala 0-20)
-            $model->promedio = round(($p1 + $p2 + $nf) / 3, 2);
+    public function anioEscolar()
+    {
+        return $this->belongsTo(AnioEscolar::class, 'codigo_ano_escolar', 'codigo_ano_escolar');
+    }
 
-            // Definir estado automáticamente
-            $model->estado = $model->promedio >= 10 ? 'aprobado' : 'reprobado';
-        });
+    public function docenteEvaluador()
+    {
+        return $this->belongsTo(Docente::class, 'cedula_docente_evaluador', 'cedula_personal');
+    }
+
+    /**
+     * Resultado según tipo de evaluación y nota mínima del sistema.
+     * A = Aprobado, R = Reprobado, P = Pendiente (sin nota)
+     */
+    public function getResultadoAttribute(): string
+    {
+        if ($this->nota === null) {
+            return 'P';
+        }
+        $planEstudio = PlanEstudios::where([
+            'siglas_materia'    => $this->siglas_materia,
+            'id_mencion'        => $this->id_mencion,
+            'codigo_grado'      => $this->codigo_grado,
+            'codigo_ano_escolar' => $this->codigo_ano_escolar,
+        ])->first();
+
+        if ($planEstudio && $planEstudio->tipo_evaluacion === 'L') {
+            return $this->nota == 1 ? 'A' : 'R';
+        }
+
+        return $this->nota >= ParametroSistema::notaMinima() ? 'A' : 'R';
     }
 }

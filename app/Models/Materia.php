@@ -2,30 +2,34 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Materia extends Model
 {
-    use HasFactory;
+    protected $table = 'Materia';
+    protected $primaryKey = 'siglas';
+    public $incrementing = false;
+    protected $keyType = 'string';
+    public $timestamps = false;
 
     protected $fillable = [
-        'codigo_materia',
+        'siglas',
         'nombre',
-        'descripcion',
-        'creditos',
-        'estado'
+        'area_formacion',
     ];
 
-    // Relación: Una materia tiene muchas inscripciones
-    public function inscripciones()
+    public function planesEstudio()
     {
-        return $this->hasMany(Inscripcion::class);
+        return $this->hasMany(PlanEstudios::class, 'siglas_materia', 'siglas');
     }
 
-    // Scope para filtrar por estado
-    public function scopeActivas($query)
+    public function evaluaciones()
     {
-        return $query->where('estado', 'activa');
+        return $this->hasMany(Evaluacion::class, 'siglas_materia', 'siglas');
+    }
+
+    public function asignaciones()
+    {
+        return $this->hasMany(AsignacionDocente::class, 'siglas_materia', 'siglas');
     }
 }

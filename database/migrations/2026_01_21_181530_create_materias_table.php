@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('nombre', 150);
             $table->text('descripcion')->nullable();
             $table->integer('creditos')->default(1);
-            $table->enum('estado', ['activa', 'inactiva'])->default('activa');
+            $table->string('estado', 20)->default('activa');
             $table->timestamps();
             
             $table->index('codigo_materia');

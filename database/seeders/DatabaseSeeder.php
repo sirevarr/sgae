@@ -17,16 +17,23 @@ use App\Models\Seccion;
 
 class DatabaseSeeder extends Seeder
 {
+    private const ANIO_ESCOLAR = '2025-2026';
+    private const NIVEL_MEDIA_GENERAL = 'Educación Media General';
+    private const AREA_CIENCIAS_NATURALES = 'Ciencias Naturales';
+    private const ESTADO_ACTIVO = 'activo';
+    private const ESTADO_VIGENTE = 'vigente';
+    private const CLAVE_NOTA_MINIMA = 'nota_minima_aprobatoria';
+    private const CLAVE_NOMBRE_SISTEMA = 'nombre_sistema';
+    private const CLAVE_VERSION = 'version';
+    private const CLAVE_MAX_ESTUDIANTES = 'max_estudiantes_seccion';
+
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
         // 1. Parámetros del Sistema
-        ParametroSistema::updateOrCreate(['clave' => 'nota_minima_aprobatoria'], ['valor' => '10']);
-        ParametroSistema::updateOrCreate(['clave' => 'nombre_sistema'], ['valor' => 'SGAE']);
-        ParametroSistema::updateOrCreate(['clave' => 'version'], ['valor' => '1.0.0']);
-        ParametroSistema::updateOrCreate(['clave' => 'max_estudiantes_seccion'], ['valor' => '35']);
+        $this->crearParametrosSistema();
 
         // 2. Personal Administrativo (Director y Coordinador)
         $director = Personal::updateOrCreate(
@@ -36,7 +43,7 @@ class DatabaseSeeder extends Seeder
                 'apellidos' => 'González',
                 'cargo' => 'Directora',
                 'genero' => 'F',
-                'estado' => 'activo'
+                'estado' => self::ESTADO_ACTIVO,
             ]
         );
 
@@ -47,7 +54,7 @@ class DatabaseSeeder extends Seeder
                 'apellidos' => 'Pérez',
                 'cargo' => 'Coordinador Académico',
                 'genero' => 'M',
-                'estado' => 'activo'
+                'estado' => self::ESTADO_ACTIVO,
             ]
         );
 
@@ -67,22 +74,22 @@ class DatabaseSeeder extends Seeder
         );
 
         // 4. Año Escolar
-        $anio = AnioEscolar::updateOrCreate(
-            ['codigo_ano_escolar' => '2025-2026'],
+        AnioEscolar::updateOrCreate(
+            ['codigo_ano_escolar' => self::ANIO_ESCOLAR],
             [
                 'fecha_inicio' => '2025-09-15',
                 'fecha_fin' => '2026-07-15',
-                'estado' => 'vigente'
+                'estado' => self::ESTADO_VIGENTE,
             ]
         );
 
         // 5. Grados (Media General venezolana)
         $grados = [
-            ['codigo_grado' => '1ER', 'nombre' => 'Primer Año', 'nivel_educativo' => 'Educación Media General', 'numero_ano' => 1, 'estado' => 'activo'],
-            ['codigo_grado' => '2DO', 'nombre' => 'Segundo Año', 'nivel_educativo' => 'Educación Media General', 'numero_ano' => 2, 'estado' => 'activo'],
-            ['codigo_grado' => '3ER', 'nombre' => 'Tercer Año', 'nivel_educativo' => 'Educación Media General', 'numero_ano' => 3, 'estado' => 'activo'],
-            ['codigo_grado' => '4TO', 'nombre' => 'Cuarto Año', 'nivel_educativo' => 'Educación Media General', 'numero_ano' => 4, 'estado' => 'activo'],
-            ['codigo_grado' => '5TO', 'nombre' => 'Quinto Año', 'nivel_educativo' => 'Educación Media General', 'numero_ano' => 5, 'estado' => 'activo'],
+            ['codigo_grado' => '1ER', 'nombre' => 'Primer Año', 'nivel_educativo' => self::NIVEL_MEDIA_GENERAL, 'numero_ano' => 1, 'estado' => 'activo'],
+            ['codigo_grado' => '2DO', 'nombre' => 'Segundo Año', 'nivel_educativo' => self::NIVEL_MEDIA_GENERAL, 'numero_ano' => 2, 'estado' => 'activo'],
+            ['codigo_grado' => '3ER', 'nombre' => 'Tercer Año', 'nivel_educativo' => self::NIVEL_MEDIA_GENERAL, 'numero_ano' => 3, 'estado' => 'activo'],
+            ['codigo_grado' => '4TO', 'nombre' => 'Cuarto Año', 'nivel_educativo' => self::NIVEL_MEDIA_GENERAL, 'numero_ano' => 4, 'estado' => 'activo'],
+            ['codigo_grado' => '5TO', 'nombre' => 'Quinto Año', 'nivel_educativo' => self::NIVEL_MEDIA_GENERAL, 'numero_ano' => 5, 'estado' => 'activo'],
         ];
         foreach ($grados as $g) {
             Grado::updateOrCreate(['codigo_grado' => $g['codigo_grado']], $g);
@@ -103,9 +110,9 @@ class DatabaseSeeder extends Seeder
             ['siglas' => 'MAT', 'nombre' => 'Matemática', 'area_formacion' => 'Matemática'],
             ['siglas' => 'CAS', 'nombre' => 'Castellano y Literatura', 'area_formacion' => 'Castellano y Literatura'],
             ['siglas' => 'ING', 'nombre' => 'Idiomas Extranjeros (Inglés)', 'area_formacion' => 'Idiomas Extranjeros'],
-            ['siglas' => 'BIO', 'nombre' => 'Biología', 'area_formacion' => 'Ciencias Naturales'],
-            ['siglas' => 'FIS', 'nombre' => 'Física', 'area_formacion' => 'Ciencias Naturales'],
-            ['siglas' => 'QUI', 'nombre' => 'Química', 'area_formacion' => 'Ciencias Naturales'],
+            ['siglas' => 'BIO', 'nombre' => 'Biología', 'area_formacion' => self::AREA_CIENCIAS_NATURALES],
+            ['siglas' => 'FIS', 'nombre' => 'Física', 'area_formacion' => self::AREA_CIENCIAS_NATURALES],
+            ['siglas' => 'QUI', 'nombre' => 'Química', 'area_formacion' => self::AREA_CIENCIAS_NATURALES],
             ['siglas' => 'HIS', 'nombre' => 'Historia', 'area_formacion' => 'Ciencias Sociales'],
             ['siglas' => 'GEO', 'nombre' => 'Geografía', 'area_formacion' => 'Ciencias Sociales'],
             ['siglas' => 'EDU', 'nombre' => 'Educación para el Trabajo', 'area_formacion' => 'Educación para el Trabajo'],
@@ -121,20 +128,23 @@ class DatabaseSeeder extends Seeder
         Usuario::updateOrCreate(
             ['codigo_usuario' => 'admin'],
             [
+                'name' => 'Administrador',
+                'email' => 'admin@sgae.test',
+                'email_verified_at' => now(),
                 'cedula_personal' => $director->cedula_personal,
                 'rol' => 'administrador',
                 'clave_hash' => Hash::make('password'),
-                'estado' => 'activo',
+                'estado' => self::ESTADO_ACTIVO,
                 'fecha_creacion' => now()->format('Y-m-d'),
-                'intentos_fallidos' => 0
+                'intentos_fallidos' => 0,
             ]
         );
 
         // 9. Momentos Evaluativos
         $momentos = [
-            ['numero_momento' => 1, 'codigo_ano_escolar' => '2025-2026', 'nombre' => 'Primer Momento', 'fecha_inicio' => '2025-09-15', 'fecha_fin' => '2025-11-30', 'porcentaje' => 33.33, 'estado' => 'activo'],
-            ['numero_momento' => 2, 'codigo_ano_escolar' => '2025-2026', 'nombre' => 'Segundo Momento', 'fecha_inicio' => '2025-12-01', 'fecha_fin' => '2026-03-15', 'porcentaje' => 33.33, 'estado' => 'por_iniciar'],
-            ['numero_momento' => 3, 'codigo_ano_escolar' => '2025-2026', 'nombre' => 'Tercer Momento', 'fecha_inicio' => '2026-03-16', 'fecha_fin' => '2026-07-15', 'porcentaje' => 33.34, 'estado' => 'por_iniciar'],
+            ['numero_momento' => 1, 'codigo_ano_escolar' => self::ANIO_ESCOLAR, 'nombre' => 'Primer Momento', 'fecha_inicio' => '2025-09-15', 'fecha_fin' => '2025-11-30', 'porcentaje' => 33.33, 'estado' => 'activo'],
+            ['numero_momento' => 2, 'codigo_ano_escolar' => self::ANIO_ESCOLAR, 'nombre' => 'Segundo Momento', 'fecha_inicio' => '2025-12-01', 'fecha_fin' => '2026-03-15', 'porcentaje' => 33.33, 'estado' => 'por_iniciar'],
+            ['numero_momento' => 3, 'codigo_ano_escolar' => self::ANIO_ESCOLAR, 'nombre' => 'Tercer Momento', 'fecha_inicio' => '2026-03-16', 'fecha_fin' => '2026-07-15', 'porcentaje' => 33.34, 'estado' => 'por_iniciar'],
         ];
         foreach ($momentos as $mom) {
             MomentoEvaluativo::updateOrCreate(
@@ -153,7 +163,7 @@ class DatabaseSeeder extends Seeder
             [
                 'letra' => 'A',
                 'codigo_grado' => '1ER',
-                'codigo_ano_escolar' => '2025-2026',
+                'codigo_ano_escolar' => self::ANIO_ESCOLAR,
                 'id_mencion' => $idMencion,
                 'capacidad_maxima' => 35,
                 'turno' => 'mañana'
@@ -168,7 +178,7 @@ class DatabaseSeeder extends Seeder
                     'siglas_materia' => $mat['siglas'],
                     'id_mencion' => $idMencion,
                     'codigo_grado' => '1ER',
-                    'codigo_ano_escolar' => '2025-2026',
+                    'codigo_ano_escolar' => self::ANIO_ESCOLAR,
                 ],
                 [
                     'horas_semanales' => 4,
@@ -176,9 +186,23 @@ class DatabaseSeeder extends Seeder
                     'tipo_evaluacion' => 'N',
                     'se_repara' => true,
                     'creditos' => 1,
-                    'estado' => 'activo'
+                    'estado' => self::ESTADO_ACTIVO,
                 ]
             );
+        }
+    }
+
+    private function crearParametrosSistema(): void
+    {
+        $parametros = [
+            self::CLAVE_NOTA_MINIMA => '10',
+            self::CLAVE_NOMBRE_SISTEMA => 'SGAE',
+            self::CLAVE_VERSION => '1.0.0',
+            self::CLAVE_MAX_ESTUDIANTES => '35',
+        ];
+
+        foreach ($parametros as $clave => $valor) {
+            ParametroSistema::updateOrCreate(['clave' => $clave], ['valor' => $valor]);
         }
     }
 }

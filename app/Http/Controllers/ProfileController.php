@@ -30,9 +30,14 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        // fill solo con los campos validados (no hay email_verified_at en Usuario)
-        $request->user()->fill($request->validated());
-        $request->user()->save();
+        $user = $request->user();
+
+        if ($request->filled('email') && $request->email !== $user->email) {
+            $user->email_verified_at = null;
+        }
+
+        $user->fill($request->validated());
+        $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }

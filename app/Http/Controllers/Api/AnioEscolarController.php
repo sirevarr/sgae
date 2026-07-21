@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 
 class AnioEscolarController extends Controller
 {
+    private const ESTADO_VIGENTE = 'vigente';
+
     public function index(): JsonResponse
     {
         return response()->json(
@@ -32,10 +34,7 @@ class AnioEscolarController extends Controller
             'estado'             => 'required|in:vigente,finalizado,planificado',
         ]);
 
-        // Si se marca como vigente, cambiar el actual a finalizado
-        if ($data['estado'] === 'vigente') {
-            AnioEscolar::where('estado', 'vigente')->update(['estado' => 'finalizado']);
-        }
+        $this->sincronizarEstadoVigente($data);
 
         return response()->json(AnioEscolar::create($data), 201);
     }
@@ -50,18 +49,42 @@ class AnioEscolarController extends Controller
             'estado'       => 'sometimes|in:vigente,finalizado,planificado',
         ]);
 
-        if (($data['estado'] ?? null) === 'vigente') {
-            AnioEscolar::where('estado', 'vigente')
-                ->where('codigo_ano_escolar', '!=', $codigo)
-                ->update(['estado' => 'finalizado']);
-        }
+        $this->sincronizarEstadoVigente($data, $codigo);
 
         $anio->update($data);
+
         return response()->json($anio->fresh());
     }
 
     public function vigente(): JsonResponse
     {
         return response()->json(AnioEscolar::vigente());
+    }
+
+    public function destroy(string $codigo): JsonResponse
+    {
+        $anio = AnioEscolar::findOrFail($codigo);
+        try {
+            $anio->delete();
+            return response()->json(null, 204);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['error' => 'No se puede eliminar el año escolar porque existen registros relacionados.'], 409);
+        }
+    }
+
+    private function sincronizarEstadoVigente(array $data, ?string $codigo = null): void
+    {
+        if (($data['estado'] ?? null) !== self::ESTADO_VIGENTE) {
+            return;
+        }
+
+        $this->finalizarAniosVigentesExcept($codigo);
+    }
+
+    private function finalizarAniosVigentesExcept(?string $codigo): void
+    {
+        AnioEscolar::where('estado', self::ESTADO_VIGENTE)
+            ->when($codigo !== null, fn ($query) => $query->where('codigo_ano_escolar', '!=', $codigo))
+            ->update(['estado' => 'finalizado']);
     }
 }

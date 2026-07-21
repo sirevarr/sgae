@@ -13,7 +13,7 @@ class MomentoEvaluativoController extends Controller
     public function index(Request $request): JsonResponse
     {
         $q = MomentoEvaluativo::with('anioEscolar')
-            ->when($request->codigo_ano_escolar, fn($query) =>
+            ->when($request->filled('codigo_ano_escolar'), fn ($query) =>
                 $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
             )
             ->orderBy('numero_momento')
@@ -26,7 +26,7 @@ class MomentoEvaluativoController extends Controller
     {
         $data = $request->validate([
             'numero_momento'     => 'required|integer|in:1,2,3',
-            'codigo_ano_escolar' => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
+            'codigo_ano_escolar' => 'required|string',
             'nombre'             => 'required|string|max:100',
             'fecha_inicio'       => 'nullable|date',
             'fecha_fin'          => 'nullable|date|after_or_equal:fecha_inicio',
@@ -43,11 +43,8 @@ class MomentoEvaluativoController extends Controller
             return response()->json(['error' => 'Este momento ya existe para el año escolar indicado.'], 422);
         }
 
-        // Solo un momento puede estar activo a la vez
         if ($data['estado'] === 'activo') {
-            MomentoEvaluativo::where('codigo_ano_escolar', $data['codigo_ano_escolar'])
-                ->where('estado', 'activo')
-                ->update(['estado' => 'finalizado']);
+            $this->desactivarMomentosActivos($data['codigo_ano_escolar']);
         }
 
         return response()->json(MomentoEvaluativo::create($data), 201);
@@ -66,10 +63,7 @@ class MomentoEvaluativoController extends Controller
         ]);
 
         if (($data['estado'] ?? null) === 'activo') {
-            MomentoEvaluativo::where('codigo_ano_escolar', $data['codigo_ano_escolar'])
-                ->where('numero_momento', '!=', $data['numero_momento'])
-                ->where('estado', 'activo')
-                ->update(['estado' => 'finalizado']);
+            $this->desactivarMomentosActivos($data['codigo_ano_escolar'], $data['numero_momento']);
         }
 
         MomentoEvaluativo::where([
@@ -78,5 +72,32 @@ class MomentoEvaluativoController extends Controller
         ])->update($request->only(['nombre', 'fecha_inicio', 'fecha_fin', 'porcentaje', 'estado']));
 
         return response()->json(['message' => 'Momento actualizado.']);
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'numero_momento' => 'required|integer',
+            'codigo_ano_escolar' => 'required|string',
+        ]);
+
+        $momento = MomentoEvaluativo::where('codigo_ano_escolar', $data['codigo_ano_escolar'])
+            ->where('numero_momento', $data['numero_momento'])
+            ->firstOrFail();
+
+        try {
+            $momento->delete();
+            return response()->json(null, 204);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['error' => 'No se puede eliminar el momento evaluativo porque tiene dependencias.'], 409);
+        }
+    }
+
+    private function desactivarMomentosActivos(string $codigoAnoEscolar, ?int $numeroMomento = null): void
+    {
+        MomentoEvaluativo::where('codigo_ano_escolar', $codigoAnoEscolar)
+            ->when($numeroMomento !== null, fn ($query) => $query->where('numero_momento', '!=', $numeroMomento))
+            ->where('estado', 'activo')
+            ->update(['estado' => 'finalizado']);
     }
 }

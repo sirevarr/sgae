@@ -1,9 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 
 defineProps({
@@ -25,7 +22,9 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Iniciar Sesión — SGAE" />
+        <Head>
+            <title>Iniciar Sesión — SGAE</title>
+        </Head>
 
         <!-- Banner SGAE -->
         <div class="text-center mb-8">
@@ -44,8 +43,8 @@ const submit = () => {
 
         <form @submit.prevent="submit" class="space-y-5">
             <div>
-                <InputLabel for="codigo_usuario" value="Código de Usuario" class="text-sky-800 font-bold" />
-                <TextInput
+                <label for="codigo_usuario" class="block text-sm font-bold text-sky-800">Código de Usuario</label>
+                <input
                     id="codigo_usuario"
                     type="text"
                     class="mt-1 block w-full border-sky-200 focus:border-sky-500 focus:ring-sky-500 rounded-xl"
@@ -59,8 +58,8 @@ const submit = () => {
             </div>
 
             <div>
-                <InputLabel for="password" value="Contraseña" class="text-sky-800 font-bold" />
-                <TextInput
+                <label for="password" class="block text-sm font-bold text-sky-800">Contraseña</label>
+                <input
                     id="password"
                     type="password"
                     class="mt-1 block w-full border-sky-200 focus:border-sky-500 focus:ring-sky-500 rounded-xl"

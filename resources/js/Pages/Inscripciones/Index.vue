@@ -1,332 +1,441 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { ref, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
 
-// --- FUNCIONES DE UTILIDAD ---
+// ── Datos ──────────────────────────────────────────────────────
+const inscripciones  = ref([]);
+const estudiantes    = ref([]);
+const secciones      = ref([]);
+const anios          = ref([]);
+const representantes = ref([]);
+const loading        = ref(false);
+const saving         = ref(false);
+const errorMsg       = ref('');
+const successMsg     = ref('');
 
-// Obtiene la fecha actual local en formato YYYY-MM-DD
-const obtenerFechaLocal = () => {
+// ── Filtros ────────────────────────────────────────────────────
+const filtros = reactive({
+    codigo_ano_escolar: '',
+    codigo_seccion: '',
+});
+
+// ── Modal ──────────────────────────────────────────────────────
+const showModal = ref(false);
+const editMode  = ref(false);
+const form = reactive({
+    id_matricula:         null,
+    estudiante_id:        '',
+    codigo_ano_escolar:   '',
+    codigo_seccion:       '',
+    cedula_representante: '',
+    fecha_matricula:      '',
+    numero_lista:         '',
+    condicion_ingreso:    '',
+    procedencia:          '',
+    ano_inicio_cursante:  '',
+    estado_matricula:     'activa',
+    observaciones:        '',
+});
+
+const condicionesIngreso = ['nuevo_ingreso', 'repitiente', 'traslado', 'reingreso'];
+const estadosMatricula   = ['activa', 'retirada', 'trasladada'];
+
+// ── Cargar datos ───────────────────────────────────────────────
+async function cargarTodo() {
+    loading.value = true;
+    try {
+        const [
+            { data: estData },
+            { data: secData },
+            { data: anioData },
+            { data: repData },
+        ] = await Promise.all([
+            axios.get('/api/estudiantes'),
+            axios.get('/api/secciones'),
+            axios.get('/api/anios-escolares'),
+            axios.get('/api/representantes'),
+        ]);
+        estudiantes.value    = estData.data ?? estData;
+        secciones.value      = secData.data ?? secData;
+        anios.value          = anioData.data ?? anioData;
+        representantes.value = repData.data ?? repData;
+        await cargarInscripciones();
+    } finally {
+        loading.value = false;
+    }
+}
+
+async function cargarInscripciones() {
+    const params = {};
+    if (filtros.codigo_ano_escolar) params.codigo_ano_escolar = filtros.codigo_ano_escolar;
+    if (filtros.codigo_seccion)     params.codigo_seccion     = filtros.codigo_seccion;
+    const { data } = await axios.get('/api/inscripciones', { params });
+    inscripciones.value = data.data ?? data;
+}
+
+// ── Helpers de fecha ──────────────────────────────────────────
+const hoy = () => {
     const d = new Date();
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().split('T')[0];
 };
 
-// Formatea la fecha para evitar el desfase de un día
-const formatearFechaFull = (fecha) => {
-    if (!fecha) return 'N/A';
-    const parteFecha = fecha.split('T')[0];
-    const [year, month, day] = parteFecha.split('-');
-    return `${day}/${month}/${year}`;
+const formatFecha = (f) => {
+    if (!f) return '—';
+    const p = f.split('T')[0];
+    const [y, m, d] = p.split('-');
+    return `${d}/${m}/${y}`;
 };
 
-// Mapeo para nombres correctos de grados
-const nombresGrados = {
-    1: '1er Año',
-    2: '2do Año',
-    3: '3er Año',
-    4: '4to Año',
-    5: '5to Año'
-};
+// ── Modal helpers ──────────────────────────────────────────────
+function abrirNueva() {
+    editMode.value = false;
+    Object.assign(form, {
+        id_matricula: null, estudiante_id: '', codigo_ano_escolar: '',
+        codigo_seccion: '', cedula_representante: '', fecha_matricula: hoy(),
+        numero_lista: '', condicion_ingreso: '', procedencia: '',
+        ano_inicio_cursante: new Date().getFullYear(), estado_matricula: 'activa', observaciones: '',
+    });
+    errorMsg.value = '';
+    showModal.value = true;
+}
 
-// --- ESTADOS ---
-const inscripciones = ref([]);
-const estudiantes = ref([]);
-const materias = ref([]);
-const mostrarModal = ref(false);
-const editandoId = ref(null);
-const busqueda = ref('');
-const filtroEstado = ref(''); 
-const filtroGrado = ref(''); 
-const filtroSeccion = ref('');
-const filtroPeriodo = ref('');
+function abrirEditar(ins) {
+    editMode.value = true;
+    Object.assign(form, {
+        id_matricula:         ins.id_matricula,
+        estudiante_id:        ins.cedula_estudiante,
+        codigo_ano_escolar:   ins.codigo_ano_escolar,
+        codigo_seccion:       ins.codigo_seccion,
+        cedula_representante: ins.cedula_representante ?? '',
+        fecha_matricula:      ins.fecha_matricula ? ins.fecha_matricula.split('T')[0] : '',
+        numero_lista:         ins.numero_lista ?? '',
+        condicion_ingreso:    ins.condicion_ingreso ?? '',
+        procedencia:          ins.procedencia ?? '',
+        ano_inicio_cursante:  ins.ano_inicio_cursante ?? '',
+        estado_matricula:     ins.estado_matricula ?? 'activa',
+        observaciones:        ins.observaciones ?? '',
+    });
+    errorMsg.value = '';
+    showModal.value = true;
+}
 
-const form = ref({
-    estudiante_id: '', 
-    materia_id: '', 
-    periodo: '2026-1', 
-    fecha_inscripcion: obtenerFechaLocal(), 
-    estado: 'activa'
-});
+function cerrarModal() {
+    showModal.value = false;
+    errorMsg.value = '';
+}
 
-// --- CARGA DE DATOS ---
-const cargarDatos = async () => {
-    try {
-        const [resIns, resEst, resMat] = await Promise.all([
-            axios.get('/api/inscripciones'),
-            axios.get('/api/estudiantes'),
-            axios.get('/api/materias')
-        ]);
-        inscripciones.value = resIns.data.data || resIns.data;
-        estudiantes.value = resEst.data.data || resEst.data;
-        // Filtrar solo materias ACTIVAS
-            materias.value = (resMat.data.data || resMat.data).filter(m => 
-                String(m.estado).toLowerCase().startsWith('act')
-            );
-    } catch (error) {
-        console.error("Error al cargar datos:", error);
-    }
-};
-
-// --- LÓGICA DE FILTRADO ---
-const inscripcionesFiltradas = computed(() => {
-        return inscripciones.value.filter(ins => {
-            // Excluir inscripciones cuya materia esté inactiva (defensa doble en frontend)
-            const materiaActiva = String(ins.materia?.estado || '').toLowerCase().startsWith('act');
-            if (!materiaActiva) return false;
-        const buscar = busqueda.value.toLowerCase().trim();
-        const est = ins.estudiante;
-        
-        const info = `${est?.nombres} ${est?.apellidos} ${est?.cedula} ${ins.materia?.nombre}`.toLowerCase();
-        const coincideTexto = info.includes(buscar);
-        const coincideGrado = filtroGrado.value === '' || String(est?.grado) === String(filtroGrado.value);
-        const coincideSeccion = filtroSeccion.value === '' || est?.seccion === filtroSeccion.value;
-        const coincidePeriodo = filtroPeriodo.value === '' || (ins.periodo || '') === filtroPeriodo.value;
-        
-        let coincideEstado = true;
-        if (filtroEstado.value !== '') {
-            const estadoDb = String(ins.estado || '').toLowerCase();
-            const estadoBusqueda = String(filtroEstado.value).toLowerCase();
-            coincideEstado = estadoDb.startsWith(estadoBusqueda.substring(0,4));
-        }
-
-        return coincideTexto && coincideGrado && coincideSeccion && coincideEstado && coincidePeriodo;
-    }).sort((a, b) => a.estudiante.apellidos.localeCompare(b.estudiante.apellidos));
-});
-
-// Periodos disponibles a partir de las inscripciones
-const periodosInscripciones = computed(() => {
-    const set = new Set((inscripciones.value || []).map(i => i.periodo).filter(Boolean));
-    return Array.from(set).sort();
-});
-
-// Materias filtradas según estudiante seleccionado (solo activas)
-const materiasDisponibles = computed(() => {
-    return materias.value.filter(m => String(m.estado).toLowerCase().startsWith('act'));
-});
-
-// --- ACCIONES ---
-const abrirModal = () => {
-    editandoId.value = null;
-    form.value = { 
-        estudiante_id: '', 
-        materia_id: '', 
-        periodo: '2026-1', 
-        fecha_inscripcion: obtenerFechaLocal(), 
-        estado: 'activa' 
-    };
-    mostrarModal.value = true;
-};
-
-const prepararEdicion = (ins) => {
-    editandoId.value = ins.id;
-    const fechaLimpia = ins.fecha_inscripcion ? ins.fecha_inscripcion.split('T')[0] : '';
-    
-    form.value = { 
-        estudiante_id: ins.estudiante_id,
-        materia_id: ins.materia_id,
-        periodo: ins.periodo,
-        fecha_inscripcion: fechaLimpia,
-            estado: String(ins.estado).toLowerCase().startsWith('act') ? 'activa' : 'inactiva'
-    };
-    mostrarModal.value = true;
-};
-
-const guardar = async () => {
+// ── CRUD ───────────────────────────────────────────────────────
+async function guardar() {
+    saving.value = true;
+    errorMsg.value = '';
     try {
         const payload = {
-            estudiante_id: Number(form.value.estudiante_id),
-            materia_id: Number(form.value.materia_id),
-            periodo: String(form.value.periodo).trim(),
-            fecha_inscripcion: form.value.fecha_inscripcion,
-            estado: form.value.estado
+            estudiante_id:        form.estudiante_id,
+            codigo_ano_escolar:   form.codigo_ano_escolar,
+            codigo_seccion:       form.codigo_seccion,
+            cedula_representante: form.cedula_representante || null,
+            fecha_matricula:      form.fecha_matricula,
+            numero_lista:         form.numero_lista || null,
+            condicion_ingreso:    form.condicion_ingreso || null,
+            procedencia:          form.procedencia || null,
+            ano_inicio_cursante:  form.ano_inicio_cursante || null,
+            estado_matricula:     form.estado_matricula,
+            observaciones:        form.observaciones || null,
         };
 
-        if (editandoId.value) {
-            await axios.put(`/api/inscripciones/${editandoId.value}`, payload);
-            alert("Inscripción actualizada exitosamente");
+        if (editMode.value) {
+            await axios.put(`/api/inscripciones/${form.id_matricula}`, payload);
+            successMsg.value = 'Inscripción actualizada correctamente.';
         } else {
             await axios.post('/api/inscripciones', payload);
-            alert("Inscripción registrada exitosamente");
+            successMsg.value = 'Inscripción registrada correctamente.';
         }
-        
-        await cargarDatos();
-        mostrarModal.value = false;
+        cerrarModal();
+        await cargarInscripciones();
+        setTimeout(() => successMsg.value = '', 3500);
     } catch (e) {
-        const msg = e.response?.data?.error || 
-                   e.response?.data?.message || 
-                   "Error al procesar la solicitud";
-        alert(msg);
-    }
-};
-
-const eliminar = async (id) => {
-    if (confirm('¿Desea retirar esta inscripción?')) {
-        try {
-            await axios.delete(`/api/inscripciones/${id}`);
-            await cargarDatos();
-            alert("Inscripción retirada correctamente");
-        } catch (error) {
-            alert("Error al retirar la inscripción");
+        const errData = e.response?.data;
+        if (errData?.errors) {
+            errorMsg.value = Object.values(errData.errors).flat().join(' | ');
+        } else {
+            errorMsg.value = errData?.error ?? errData?.message ?? 'Error desconocido';
         }
+    } finally {
+        saving.value = false;
     }
+}
+
+async function eliminar(ins) {
+    if (!confirm(`¿Eliminar la inscripción de "${ins.estudiante?.nombres ?? ins.cedula_estudiante}"?`)) return;
+    try {
+        await axios.delete(`/api/inscripciones/${ins.id_matricula}`);
+        successMsg.value = 'Inscripción eliminada.';
+        await cargarInscripciones();
+        setTimeout(() => successMsg.value = '', 3000);
+    } catch (e) {
+        alert('No se pudo eliminar: ' + (e.response?.data?.error ?? e.message));
+    }
+}
+
+// ── Helpers visuales ──────────────────────────────────────────
+const estadoBadge = {
+    activa:     'bg-emerald-100 text-emerald-700',
+    retirada:   'bg-red-100 text-red-700',
+    trasladada: 'bg-amber-100 text-amber-700',
 };
 
-onMounted(cargarDatos);
+const nombreEst = (ins) => {
+    const e = ins.estudiante;
+    return e ? `${e.apellidos}, ${e.nombres}` : ins.cedula_estudiante;
+};
+
+const nombreSec = (ins) => {
+    const s = ins.seccion;
+    return s ? `${s.grado?.nombre ?? s.codigo_grado} — Secc. ${s.letra}` : ins.codigo_seccion;
+};
+
+const nombreRep = (ins) => {
+    const r = ins.representante;
+    return r ? `${r.nombres} ${r.apellidos}` : '—';
+};
+
+onMounted(cargarTodo);
 </script>
 
 <template>
-    <Head title="Inscripciones" />
+    <Head title="Inscripciones — SGAE" />
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-black text-2xl text-sky-500 uppercase tracking-tight">Gestión de Inscripciones</h2>
+            <h1 class="text-xl font-black text-slate-800">📝 Inscripciones</h1>
+            <p class="text-xs text-slate-500 mt-0.5">Registro y gestión de inscripciones de estudiantes por año escolar</p>
         </template>
 
-        <div class="py-12 bg-sky-50/30 min-h-screen">
-            <div class="max-w-[1450px] mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white p-6 shadow-sm rounded-2xl border border-sky-100">
-                    
-                    <div class="flex flex-wrap items-center gap-4 mb-8">
-                        <button @click="abrirModal" class="bg-sky-500 text-white px-6 py-3 rounded-xl font-black uppercase text-xs shadow-lg transition hover:bg-sky-600">
-                            + Nueva Inscripción
-                        </button>
+        <!-- MENSAJES -->
+        <div v-if="successMsg" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700 font-medium flex items-center gap-2">
+            ✅ {{ successMsg }}
+        </div>
 
-                        <input v-model="busqueda" type="text" placeholder="Buscar por nombre o cédula..." class="flex-1 min-w-[200px] border-sky-100 rounded-xl px-4 py-3 shadow-sm focus:ring-sky-500 focus:border-sky-500" />
-                        
-                        <select v-model="filtroGrado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
-                            <option value="">Todos los grados</option>
-                            <option v-for="(nombre, num) in nombresGrados" :key="num" :value="num">
-                                {{ nombre }}
-                            </option>
-                        </select>
+        <!-- BARRA DE ACCIONES -->
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-5">
+            <div class="flex flex-wrap gap-3">
+                <select v-model="filtros.codigo_ano_escolar" @change="cargarInscripciones"
+                    class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+                    <option value="">Todos los años</option>
+                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
+                        {{ a.codigo_ano_escolar }}
+                    </option>
+                </select>
+                <select v-model="filtros.codigo_seccion" @change="cargarInscripciones"
+                    class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+                    <option value="">Todas las secciones</option>
+                    <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
+                        {{ s.grado?.nombre ?? s.codigo_grado }} — Secc. {{ s.letra }} ({{ s.codigo_ano_escolar }})
+                    </option>
+                </select>
+            </div>
+            <button @click="abrirNueva"
+                class="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm transition shadow">
+                + Nueva Inscripción
+            </button>
+        </div>
 
-                        <select v-model="filtroSeccion" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
-                            <option value="">Todas las secciones</option>
-                            <option value="A">Sección A</option>
-                            <option value="B">Sección B</option>
-                            <option value="C">Sección C</option>
-                            <option value="U">Única</option>
-                        </select>
+        <!-- TABLA -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+            <div v-if="loading" class="p-12 text-center text-slate-400">Cargando inscripciones…</div>
+            <div v-else-if="!inscripciones.length" class="p-16 text-center">
+                <div class="text-5xl mb-3 opacity-30">📝</div>
+                <p class="text-slate-400 text-sm">No hay inscripciones con ese filtro.</p>
+            </div>
+            <div v-else class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">#</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Cédula</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Apellidos y Nombres</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Año Escolar</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Sección</th>
+                            <th class="px-3 py-3 text-center text-xs font-black text-slate-500 uppercase whitespace-nowrap">N° Lista</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Cond. Ingreso</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Representante</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Estado</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Fecha</th>
+                            <th class="px-3 py-3 text-left text-xs font-black text-slate-500 uppercase whitespace-nowrap">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-50">
+                        <tr v-for="ins in inscripciones" :key="ins.id_matricula" class="hover:bg-slate-50 transition">
+                            <td class="px-3 py-3 text-slate-400 text-xs">{{ ins.id_matricula }}</td>
+                            <td class="px-3 py-3 font-mono text-xs">
+                                {{ ins.estudiante?.tipo_documento ?? 'V' }}-{{ ins.cedula_estudiante }}
+                            </td>
+                            <td class="px-3 py-3 font-semibold text-slate-800 whitespace-nowrap">{{ nombreEst(ins) }}</td>
+                            <td class="px-3 py-3 text-slate-600 whitespace-nowrap">{{ ins.codigo_ano_escolar }}</td>
+                            <td class="px-3 py-3 text-slate-600 text-xs whitespace-nowrap">{{ nombreSec(ins) }}</td>
+                            <td class="px-3 py-3 text-center text-slate-600">{{ ins.numero_lista ?? '—' }}</td>
+                            <td class="px-3 py-3 text-slate-600 text-xs capitalize">{{ ins.condicion_ingreso ?? '—' }}</td>
+                            <td class="px-3 py-3 text-slate-600 text-xs whitespace-nowrap">{{ nombreRep(ins) }}</td>
+                            <td class="px-3 py-3">
+                                <span :class="['px-2 py-0.5 rounded-full text-[10px] font-black uppercase whitespace-nowrap',
+                                    estadoBadge[ins.estado_matricula] ?? 'bg-slate-100 text-slate-500']">
+                                    {{ ins.estado_matricula ?? '—' }}
+                                </span>
+                            </td>
+                            <td class="px-3 py-3 text-xs text-slate-500 whitespace-nowrap">{{ formatFecha(ins.fecha_matricula) }}</td>
+                            <td class="px-3 py-3">
+                                <div class="flex gap-1.5">
+                                    <button @click="abrirEditar(ins)"
+                                        class="px-2 py-1 text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 rounded-lg hover:bg-sky-100 transition">
+                                        Editar
+                                    </button>
+                                    <button @click="eliminar(ins)"
+                                        class="px-2 py-1 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
+                                        Eliminar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-                        <select v-model="filtroEstado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
-                            <option value="">Todos los estados</option>
-                            <option value="activa">Activa</option>
-                            <option value="inactiva">Inactiva</option>
-                        </select>
-                        <select v-model="filtroPeriodo" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 text-sm">
-                            <option value="">Todos los períodos</option>
-                            <option v-for="p in periodosInscripciones" :key="p" :value="p">{{ p }}</option>
-                        </select>
+        <!-- MODAL CREAR / EDITAR -->
+        <Teleport to="body">
+            <div v-if="showModal"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+                    <div class="flex items-center justify-between mb-5">
+                        <h2 class="text-lg font-black text-slate-800">
+                            {{ editMode ? '✏️ Editar Inscripción' : '+ Nueva Inscripción' }}
+                        </h2>
+                        <button @click="cerrarModal" class="text-slate-400 hover:text-slate-700 text-2xl leading-none">&times;</button>
                     </div>
 
-                    <div class="overflow-x-auto rounded-xl border border-sky-50">
-                        <table class="min-w-full divide-y divide-sky-100">
-                            <thead class="bg-sky-50/50">
-                                <tr class="text-left text-[11px] font-black text-sky-700 uppercase tracking-widest">
-                                    <th class="px-6 py-4">Estudiante / Año</th>
-                                    <th class="px-6 py-4">Materia</th>
-                                    <th class="px-6 py-4 text-center">Periodo / Fecha</th>
-                                    <th class="px-6 py-4">Auditoría</th>
-                                    <th class="px-6 py-4 text-center">Estado</th>
-                                    <th class="px-6 py-4 text-right">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-50 bg-white">
-                                <tr v-for="ins in inscripcionesFiltradas" :key="ins.id" class="hover:bg-sky-50/40 transition">
-                                    <td class="px-6 py-4">
-                                        <div class="text-[10px] font-black text-sky-400 font-mono">V-{{ ins.estudiante?.cedula }}</div>
-                                            <div class="font-bold text-sky-900 text-sm">{{ ins.estudiante?.nombres }} {{ ins.estudiante?.apellidos }}</div>
-                                        <div class="mt-1">
-                                            <span class="bg-sky-100 text-sky-600 px-2 py-0.5 rounded text-[9px] font-black uppercase border border-sky-200">
-                                                {{ ins.grado || ins.estudiante?.grado }} - SECC: {{ ins.seccion || ins.estudiante?.seccion }}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                            <div class="text-xs font-bold text-gray-600">{{ ins.materia?.codigo_materia }}</div>
-                                        <div class="text-xs font-bold text-gray-600">{{ ins.materia?.nombre }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <div class="text-xs font-black text-sky-500">{{ ins.periodo }}</div>
-                                        <div class="text-[10px] text-gray-400 font-bold uppercase">{{ formatearFechaFull(ins.fecha_inscripcion) }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex flex-col gap-1">
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-[9px] bg-slate-100 text-slate-500 px-1 py-0.5 rounded font-bold uppercase">CREADO</span>
-                                                <span class="text-[10px] text-gray-500">{{ formatearFechaFull(ins.created_at) }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-2">
-                                                <span class="text-[9px] bg-sky-100 text-sky-500 px-1 py-0.5 rounded font-bold uppercase">EDITADO</span>
-                                                <span class="text-[10px] text-sky-600">{{ formatearFechaFull(ins.updated_at) }}</span>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span :class="(String(ins.materia?.estado || ins.estado || '').toLowerCase().startsWith('act') && String(ins.estado || '').toLowerCase().startsWith('act')) ? 'bg-green-100 text-green-700 border-green-200' : 'bg-red-100 text-red-700 border-red-200'" class="px-4 py-1.5 rounded-full text-[10px] font-black uppercase border tracking-widest">
-                                            {{ (ins.estado || '').toString().toUpperCase() }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 text-right whitespace-nowrap">
-                                        <button @click="prepararEdicion(ins)" class="text-sky-500 font-black mr-4 text-xs uppercase hover:underline">Editar</button>
-                                        <button @click="eliminar(ins.id)" class="text-red-400 font-black text-xs uppercase hover:underline">Eliminar</button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div v-if="errorMsg" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+                        ⚠️ {{ errorMsg }}
                     </div>
+
+                    <form @submit.prevent="guardar" class="space-y-4">
+                        <!-- Fila 1 -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Estudiante *</label>
+                                <select v-model="form.estudiante_id" required :disabled="editMode"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 disabled:bg-slate-50">
+                                    <option value="">Seleccionar…</option>
+                                    <option v-for="e in estudiantes" :key="e.cedula_estudiante" :value="e.cedula_estudiante">
+                                        {{ e.apellidos }}, {{ e.nombres }} ({{ e.cedula_estudiante }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Año Escolar *</label>
+                                <select v-model="form.codigo_ano_escolar" required
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+                                    <option value="">Seleccionar…</option>
+                                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
+                                        {{ a.codigo_ano_escolar }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Fila 2 -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Sección *</label>
+                                <select v-model="form.codigo_seccion" required
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+                                    <option value="">Seleccionar…</option>
+                                    <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
+                                        {{ s.grado?.nombre ?? s.codigo_grado }} — Secc. {{ s.letra }} ({{ s.codigo_ano_escolar }})
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Representante</label>
+                                <select v-model="form.cedula_representante"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+                                    <option value="">Sin asignar</option>
+                                    <option v-for="r in representantes" :key="r.cedula_representante" :value="r.cedula_representante">
+                                        {{ r.nombres }} {{ r.apellidos }} ({{ r.cedula_representante }})
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Fila 3 -->
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Fecha Matrícula *</label>
+                                <input v-model="form.fecha_matricula" type="date" required
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">N° de Lista</label>
+                                <input v-model="form.numero_lista" type="number" min="1"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Año Inicio Cursante</label>
+                                <input v-model="form.ano_inicio_cursante" type="number" min="2000" max="2099"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                            </div>
+                        </div>
+
+                        <!-- Fila 4 -->
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Condición de Ingreso</label>
+                                <select v-model="form.condicion_ingreso"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+                                    <option value="">Sin especificar</option>
+                                    <option v-for="c in condicionesIngreso" :key="c" :value="c">{{ c }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 mb-1">Estado</label>
+                                <select v-model="form.estado_matricula"
+                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400">
+                                    <option v-for="e in estadosMatricula" :key="e" :value="e">{{ e }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Fila 5 -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Procedencia</label>
+                            <input v-model="form.procedencia" type="text"
+                                placeholder="Escuela o institución de procedencia"
+                                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400" />
+                        </div>
+
+                        <!-- Observaciones -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">Observaciones</label>
+                            <textarea v-model="form.observaciones" rows="2"
+                                class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 resize-none"></textarea>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="flex justify-end gap-3 pt-2 border-t border-slate-100">
+                            <button type="button" @click="cerrarModal"
+                                class="px-5 py-2 rounded-xl text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+                                Cancelar
+                            </button>
+                            <button type="submit" :disabled="saving"
+                                class="px-5 py-2 rounded-xl text-sm font-bold text-white bg-sky-600 hover:bg-sky-700 disabled:opacity-50 transition">
+                                <span v-if="saving">Guardando…</span>
+                                <span v-else>{{ editMode ? 'Actualizar' : 'Registrar' }}</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
-        </div>
-
-        <div v-if="mostrarModal" class="fixed inset-0 bg-sky-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-sky-100">
-                <h3 class="text-2xl font-black text-sky-500 uppercase mb-6 text-center">
-                    {{ editandoId ? 'Editar Inscripción' : 'Nueva Inscripción' }}
-                </h3>
-                <form @submit.prevent="guardar" class="space-y-4">
-                    <div>
-                        <label class="text-[10px] font-black text-sky-400 uppercase">Estudiante *</label>
-                        <select v-model="form.estudiante_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required :disabled="!!editandoId">
-                            <option value="">Seleccione Estudiante</option>
-                            <option v-for="e in estudiantes.filter(s => String(s.estado).toLowerCase().includes('acti'))" :key="e.id" :value="e.id">
-                                [{{ e.grado }} - {{ e.seccion }}] {{ e.apellidos }}, {{ e.nombres }}
-                            </option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-sky-400 uppercase">Materia *</label>
-                        <select v-model="form.materia_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required :disabled="!!editandoId">
-                            <option value="">Seleccione Materia</option>
-                            <option v-for="m in materiasDisponibles" :key="m.id" :value="m.id">
-                                [{{ m.codigo_materia }}] {{ m.nombre }}
-                            </option>
-                        </select>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-[10px] font-black text-sky-400 uppercase">Periodo</label>
-                            <input v-model="form.periodo" type="text" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required />
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black text-sky-400 uppercase">Fecha Inscripción</label>
-                            <input v-model="form.fecha_inscripcion" type="date" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required />
-                        </div>
-                    </div>
-                    <div>
-                        <label class="text-[10px] font-black text-sky-400 uppercase">Estado</label>
-                        <select v-model="form.estado" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-black text-sky-600">
-                            <option value="activa">Activa</option>
-                            <option value="inactiva">Inactiva</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-end gap-3 mt-8 pt-4 border-t border-sky-50">
-                        <button type="button" @click="mostrarModal = false" class="text-sky-400 font-black text-xs uppercase">Cancelar</button>
-                        <button type="submit" class="bg-sky-500 text-white px-8 py-3 rounded-xl font-black text-xs uppercase shadow-lg">Guardar</button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        </Teleport>
     </AuthenticatedLayout>
 </template>

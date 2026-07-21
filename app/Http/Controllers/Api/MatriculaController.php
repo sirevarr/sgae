@@ -13,23 +13,7 @@ class MatriculaController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Matricula::with(['estudiante', 'seccion.grado', 'anioEscolar', 'representante'])
-            ->when($request->codigo_ano_escolar, fn($query) =>
-                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
-            )
-            ->when($request->codigo_seccion, fn($query) =>
-                $query->where('codigo_seccion', $request->codigo_seccion)
-            )
-            ->when($request->estado_matricula, fn($query) =>
-                $query->where('estado_matricula', $request->estado_matricula)
-            )
-            ->when($request->buscar, fn($query) =>
-                $query->whereHas('estudiante', fn($q2) =>
-                    $q2->where('nombres', 'like', "%{$request->buscar}%")
-                       ->orWhere('apellidos', 'like', "%{$request->buscar}%")
-                       ->orWhere('cedula_estudiante', 'like', "%{$request->buscar}%")
-                )
-            )
+        $q = $this->buildQuery($request)
             ->orderBy('numero_lista')
             ->paginate(30);
 
@@ -64,21 +48,13 @@ class MatriculaController extends Controller
             'observaciones'        => 'nullable|string',
         ]);
 
-        // Verificar cupo disponible en la sección
         $seccion = Seccion::findOrFail($data['codigo_seccion']);
-        if ($seccion->capacidad_maxima && $seccion->total_estudiantes >= $seccion->capacidad_maxima) {
-            return response()->json([
-                'error' => "La sección {$seccion->codigo_seccion} está al máximo de su capacidad ({$seccion->capacidad_maxima} estudiantes)."
-            ], 422);
+        $capacidadResponse = $this->validarCapacidad($seccion);
+        if ($capacidadResponse instanceof JsonResponse) {
+            return $capacidadResponse;
         }
 
-        // Verificar que el estudiante no esté ya matriculado en ese año escolar
-        $yaMatriculado = Matricula::where('cedula_estudiante', $data['cedula_estudiante'])
-            ->where('codigo_ano_escolar', $data['codigo_ano_escolar'])
-            ->where('estado_matricula', 'activa')
-            ->exists();
-
-        if ($yaMatriculado) {
+        if ($this->matriculaDuplicada($data)) {
             return response()->json([
                 'error' => 'El estudiante ya tiene una matrícula activa en este año escolar.'
             ], 422);
@@ -104,6 +80,58 @@ class MatriculaController extends Controller
             'motivo_retiro'        => 'sometimes|nullable|string',
         ]);
         $matricula->update($data);
+
         return response()->json($matricula->fresh(['estudiante', 'seccion.grado']));
+    }
+
+    private function buildQuery(Request $request)
+    {
+        return Matricula::with(['estudiante', 'seccion.grado', 'anioEscolar', 'representante'])
+            ->when($request->filled('codigo_ano_escolar'), fn ($query) =>
+                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            )
+            ->when($request->filled('codigo_seccion'), fn ($query) =>
+                $query->where('codigo_seccion', $request->codigo_seccion)
+            )
+            ->when($request->filled('estado_matricula'), fn ($query) =>
+                $query->where('estado_matricula', $request->estado_matricula)
+            )
+            ->when($request->filled('buscar'), fn ($query) =>
+                $query->whereHas('estudiante', fn ($q2) =>
+                    $q2->where('nombres', 'like', "%{$request->buscar}%")
+                        ->orWhere('apellidos', 'like', "%{$request->buscar}%")
+                        ->orWhere('cedula_estudiante', 'like', "%{$request->buscar}%")
+                )
+            );
+    }
+
+    private function validarCapacidad(Seccion $seccion): ?JsonResponse
+    {
+        if ($seccion->capacidad_maxima && $seccion->total_estudiantes >= $seccion->capacidad_maxima) {
+            return response()->json([
+                'error' => "La sección {$seccion->codigo_seccion} está al máximo de su capacidad ({$seccion->capacidad_maxima} estudiantes)."
+            ], 422);
+        }
+
+        return null;
+    }
+
+    private function matriculaDuplicada(array $data): bool
+    {
+        return Matricula::where('cedula_estudiante', $data['cedula_estudiante'])
+            ->where('codigo_ano_escolar', $data['codigo_ano_escolar'])
+            ->where('estado_matricula', 'activa')
+            ->exists();
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        $matricula = Matricula::findOrFail($id);
+        try {
+            $matricula->delete();
+            return response()->json(null, 204);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['error' => 'No se puede eliminar la matrícula porque tiene registros relacionados.'], 409);
+        }
     }
 }

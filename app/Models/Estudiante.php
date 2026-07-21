@@ -53,8 +53,8 @@ class Estudiante extends Model
     public function matriculaActual()
     {
         return $this->hasOne(Matricula::class, 'cedula_estudiante', 'cedula_estudiante')
-                    ->where('estado_matricula', 'activa')
-                    ->latest('fecha_matricula');
+            ->where('estado_matricula', 'activa')
+            ->latest('fecha_matricula');
     }
 
     public function evaluaciones()
@@ -84,10 +84,12 @@ class Estudiante extends Model
 
     public function scopeBuscar($query, string $termino)
     {
+        $termino = trim($termino);
+
         return $query->where(function ($q) use ($termino) {
             $q->where('nombres', 'like', "%{$termino}%")
-              ->orWhere('apellidos', 'like', "%{$termino}%")
-              ->orWhere('cedula_estudiante', 'like', "%{$termino}%");
+                ->orWhere('apellidos', 'like', "%{$termino}%")
+                ->orWhere('cedula_estudiante', 'like', "%{$termino}%");
         });
     }
 }

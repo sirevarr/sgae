@@ -6,25 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\PlanEstudios;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class PlanEstudiosController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = PlanEstudios::with(['materia', 'mencion', 'grado', 'anioEscolar'])
-            ->when($request->codigo_ano_escolar, fn($query) =>
-                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
-            )
-            ->when($request->codigo_grado, fn($query) =>
-                $query->where('codigo_grado', $request->codigo_grado)
-            )
-            ->when($request->id_mencion, fn($query) =>
-                $query->where('id_mencion', $request->id_mencion)
-            )
-            ->get();
-
-        return response()->json($q);
+        return response()->json($this->buildQuery($request)->get());
     }
 
     public function store(Request $request): JsonResponse
@@ -43,12 +30,7 @@ class PlanEstudiosController extends Controller
         ]);
 
         // PK compuesta: verificar unicidad
-        $existe = PlanEstudios::where([
-            'siglas_materia'     => $data['siglas_materia'],
-            'id_mencion'         => $data['id_mencion'],
-            'codigo_grado'       => $data['codigo_grado'],
-            'codigo_ano_escolar' => $data['codigo_ano_escolar'],
-        ])->exists();
+        $existe = PlanEstudios::where($this->buildPlanKey($data))->exists();
 
         if ($existe) {
             return response()->json(['error' => 'Esta combinación ya existe en el plan de estudios.'], 422);
@@ -73,14 +55,10 @@ class PlanEstudiosController extends Controller
             'estado'             => 'sometimes|string|max:20',
         ]);
 
-        PlanEstudios::where([
-            'siglas_materia'     => $keys['siglas_materia'],
-            'id_mencion'         => $keys['id_mencion'],
-            'codigo_grado'       => $keys['codigo_grado'],
-            'codigo_ano_escolar' => $keys['codigo_ano_escolar'],
-        ])->update($request->only([
-            'horas_semanales', 'obligatoria', 'tipo_evaluacion', 'se_repara', 'creditos', 'estado'
-        ]));
+        PlanEstudios::where($this->buildPlanKey($keys))
+            ->update($request->only([
+                'horas_semanales', 'obligatoria', 'tipo_evaluacion', 'se_repara', 'creditos', 'estado'
+            ]));
 
         return response()->json(['message' => 'Plan actualizado.']);
     }
@@ -94,7 +72,32 @@ class PlanEstudiosController extends Controller
             'codigo_ano_escolar' => 'required|string',
         ]);
 
-        PlanEstudios::where($keys)->delete();
+        PlanEstudios::where($this->buildPlanKey($keys))->delete();
+
         return response()->json(['message' => 'Entrada del plan eliminada.']);
+    }
+
+    private function buildQuery(Request $request)
+    {
+        return PlanEstudios::with(['materia', 'mencion', 'grado', 'anioEscolar'])
+            ->when($request->filled('codigo_ano_escolar'), fn ($query) =>
+                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            )
+            ->when($request->filled('codigo_grado'), fn ($query) =>
+                $query->where('codigo_grado', $request->codigo_grado)
+            )
+            ->when($request->filled('id_mencion'), fn ($query) =>
+                $query->where('id_mencion', $request->id_mencion)
+            );
+    }
+
+    private function buildPlanKey(array $data): array
+    {
+        return [
+            'siglas_materia'     => $data['siglas_materia'],
+            'id_mencion'         => $data['id_mencion'],
+            'codigo_grado'       => $data['codigo_grado'],
+            'codigo_ano_escolar' => $data['codigo_ano_escolar'],
+        ];
     }
 }

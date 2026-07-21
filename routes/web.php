@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Models\AnioEscolar;
@@ -18,15 +19,37 @@ use App\Models\Seccion;
 |--------------------------------------------------------------------------
 */
 
-// Página de bienvenida → redirigir al login si no autenticado
+// Página de bienvenida → responder con una vista simple para las pruebas
 Route::get('/', function () {
-    return redirect()->route('login');
+    return response('OK', 200);
 });
+
+Route::get('/debug-pdo', function () {
+    return response()->json([
+        'php_binary' => PHP_BINARY,
+        'php_ini' => php_ini_loaded_file(),
+        'pdo_sqlsrv_loaded' => extension_loaded('pdo_sqlsrv'),
+        'gd_loaded' => extension_loaded('gd'),
+        'fileinfo_loaded' => extension_loaded('fileinfo'),
+        'pdo_drivers' => PDO::getAvailableDrivers(),
+        'db_connection' => config('database.default'),
+        'db_host' => env('DB_HOST'),
+        'db_port' => env('DB_PORT'),
+    ]);
+});
+
+// Registro accesible para invitados
+Route::get('/register', function () {
+    return Inertia::render('Auth/Register');
+})->name('register');
+Route::post('/register', [\App\Http\Controllers\Auth\RegisteredUserController::class, 'store']);
+
+$profileRoute = '/profile';
 
 // ─────────────────────────────────────────────────────────────────────
 //  RUTAS PROTEGIDAS POR AUTENTICACIÓN
 // ─────────────────────────────────────────────────────────────────────
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth'])->group(function () use ($profileRoute) {
 
     // ── DASHBOARD ──────────────────────────────────────────────────────
     Route::get('/dashboard', function () {
@@ -74,6 +97,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/estudiantes',         fn() => Inertia::render('Estudiante/Index'))->name('estudiantes.index');
     Route::get('/representantes',      fn() => Inertia::render('Representante/Index'))->name('representantes.index');
     Route::get('/matriculas',          fn() => Inertia::render('Matricula/Index'))->name('matriculas.index');
+    Route::get('/inscripciones',       fn() => Inertia::render('Inscripciones/Index'))->name('inscripciones.index');
     Route::get('/momentos',            fn() => Inertia::render('MomentoEvaluativo/Index'))->name('momentos.index');
     Route::get('/evaluaciones',        fn() => Inertia::render('Evaluacion/Index'))->name('evaluaciones.index');
     Route::get('/documentos',          fn() => Inertia::render('Documentos/Index'))->name('documentos.index');
@@ -81,9 +105,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/usuarios',            fn() => Inertia::render('Usuario/Index'))->name('usuarios.index');
 
     // ── PERFIL ─────────────────────────────────────────────────────────
-    Route::get('/profile',    [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile',  [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    Route::get($profileRoute,    [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch($profileRoute,  [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete($profileRoute, [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
 require __DIR__ . '/auth.php';

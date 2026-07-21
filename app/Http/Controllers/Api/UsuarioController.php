@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Personal;
 use App\Models\Usuario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,18 +13,42 @@ class UsuarioController extends Controller
 {
     public function index(): JsonResponse
     {
-        return response()->json(
-            Usuario::with('personal')->orderBy('codigo_usuario')->get()
-        );
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
+        $query = Usuario::orderBy('codigo_usuario');
+        if (Personal::tableExists()) {
+            $query->with('personal');
+        }
+
+        return response()->json($query->get());
     }
 
     public function show(int $id): JsonResponse
     {
-        return response()->json(Usuario::with('personal')->findOrFail($id));
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
+        $query = Usuario::query();
+        if (Personal::tableExists()) {
+            $query->with('personal');
+        }
+
+        return response()->json($query->findOrFail($id));
     }
 
     public function store(Request $request): JsonResponse
     {
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
         $data = $request->validate([
             'codigo_usuario'  => 'required|string|max:30|unique:Usuario,codigo_usuario',
             'cedula_personal' => 'required|integer|exists:Personal,cedula_personal',
@@ -46,6 +71,10 @@ class UsuarioController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
         $usuario = Usuario::findOrFail($id);
 
         $data = $request->validate([
@@ -65,12 +94,27 @@ class UsuarioController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
         Usuario::findOrFail($id)->update(['estado' => 'inactivo']);
         return response()->json(['message' => 'Usuario desactivado.']);
     }
 
+    private function tableUnavailableResponse(string $tableName): JsonResponse
+    {
+        return response()->json([
+            'message' => "La tabla de {$tableName} no está disponible en la base de datos actual.",
+        ], 500);
+    }
+
     public function resetPassword(Request $request, int $id): JsonResponse
     {
+        if (! Usuario::tableExists()) {
+            return $this->tableUnavailableResponse('Usuario');
+        }
+
         $request->validate(['password' => 'required|string|min:8']);
         $usuario = Usuario::findOrFail($id);
         $usuario->update([

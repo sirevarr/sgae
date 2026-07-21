@@ -12,13 +12,7 @@ class SeccionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Seccion::with(['grado', 'mencion', 'docenteGuia.personal', 'anioEscolar'])
-            ->when($request->codigo_ano_escolar, fn($query) =>
-                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
-            )
-            ->when($request->codigo_grado, fn($query) =>
-                $query->where('codigo_grado', $request->codigo_grado)
-            )
+        $q = $this->buildQuery($request)
             ->orderBy('codigo_grado')
             ->orderBy('letra')
             ->get();
@@ -86,7 +80,7 @@ class SeccionController extends Controller
         $data = $request->validate([
             'cedula_docente'     => 'required|integer|exists:Docente,cedula_personal',
             'siglas_materia'     => 'required|string|exists:Materia,siglas',
-            'id_mencion'         => 'required|integer|exists:Mencion,id_mencion',
+            'id_mencion'         => 'nullable|integer|exists:Mencion,id_mencion',
             'codigo_grado'       => 'required|string|exists:Grado,codigo_grado',
             'codigo_ano_escolar' => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
             'horas_asignadas'    => 'nullable|integer|min:1',
@@ -107,5 +101,16 @@ class SeccionController extends Controller
         );
 
         return response()->json($asignacion->load(['docente.personal', 'materia']), 201);
+    }
+
+    private function buildQuery(Request $request)
+    {
+        return Seccion::with(['grado', 'mencion', 'docenteGuia.personal', 'anioEscolar'])
+            ->when($request->filled('codigo_ano_escolar'), fn ($query) =>
+                $query->where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            )
+            ->when($request->filled('codigo_grado'), fn ($query) =>
+                $query->where('codigo_grado', $request->codigo_grado)
+            );
     }
 }

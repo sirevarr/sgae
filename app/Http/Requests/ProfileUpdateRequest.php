@@ -8,14 +8,25 @@ use Illuminate\Validation\Rule;
 
 class ProfileUpdateRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     /**
      * Reglas para actualizar el perfil de un usuario de prueba2.
-     * Solo se permite editar el estado (no el codigo_usuario ni el rol).
+     * Se permite editar nombre, email y estado si aplica.
      */
     public function rules(): array
     {
         return [
-            // codigo_usuario es de solo lectura — no se puede cambiar desde el perfil
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                Rule::unique('Usuario', 'email')->ignore($this->user()->getAuthIdentifier(), 'id_usuario'),
+            ],
             'estado' => ['sometimes', 'in:activo,inactivo'],
         ];
     }

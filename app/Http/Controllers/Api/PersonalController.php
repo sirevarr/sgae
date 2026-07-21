@@ -5,23 +5,28 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Docente;
 use App\Models\Personal;
+use App\Models\Usuario;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PersonalController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Personal::with('docente')
-            ->when($request->buscar, fn($query) =>
-                $query->where('nombres', 'like', "%{$request->buscar}%")
-                      ->orWhere('apellidos', 'like', "%{$request->buscar}%")
-                      ->orWhere('cedula_personal', 'like', "%{$request->buscar}%")
-            )
-            ->when($request->cargo, fn($query) =>
-                $query->where('cargo', $request->cargo)
-            )
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
+        $relations = [];
+        if (Docente::tableExists()) {
+            $relations[] = 'docente';
+        }
+        if (Usuario::tableExists()) {
+            $relations[] = 'usuario';
+        }
+
+        $q = $this->buildQuery($request)
+            ->with($relations)
             ->orderBy('apellidos')
             ->paginate(25);
 
@@ -30,15 +35,27 @@ class PersonalController extends Controller
 
     public function show(int $cedula): JsonResponse
     {
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
+        $relations = [];
+        if (Docente::tableExists()) {
+            $relations[] = 'docente';
+        }
+        if (Usuario::tableExists()) {
+            $relations[] = 'usuario';
+        }
+
         return response()->json(
-            Personal::with(['docente', 'usuario'])->findOrFail($cedula)
+            Personal::with($relations)->findOrFail($cedula)
         );
     }
 
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'cedula_personal'  => 'required|integer|unique:Personal,cedula_personal',
+            'cedula_personal'  => 'required|integer',
             'nombres'          => 'required|string|max:80',
             'apellidos'        => 'required|string|max:80',
             'cargo'            => 'required|string|max:60',
@@ -49,21 +66,25 @@ class PersonalController extends Controller
             'fecha_ingreso'    => 'nullable|date',
             'estado'           => 'nullable|string|max:20',
             'observaciones'    => 'nullable|string',
-            // Campos de docente (opcionales)
             'especialidad'     => 'nullable|string|max:80',
-            // turno DB = char(1): M=mañana, T=tarde, N=nocturno
             'turno'            => 'nullable|string|in:M,T,N',
         ]);
 
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
+        if (Personal::where('cedula_personal', $data['cedula_personal'])->exists()) {
+            return response()->json(['message' => 'La cédula del personal ya existe.'], 422);
+        }
+
         $personal = Personal::create($data);
 
-        // Si tiene especialidad, crear registro en Docente
-        if (!empty($data['especialidad'])) {
-            Docente::create([
+        $docentePayload = $this->buildDocentePayload($data);
+        if ($docentePayload !== null && !empty($data['especialidad']) && Docente::tableExists()) {
+            Docente::create(array_merge($docentePayload, [
                 'cedula_personal' => $personal->cedula_personal,
-                'especialidad'    => $data['especialidad'],
-                'turno'           => $data['turno'] ?? null,
-            ]);
+            ]));
         }
 
         return response()->json($personal->load('docente'), 201);
@@ -71,6 +92,10 @@ class PersonalController extends Controller
 
     public function update(Request $request, int $cedula): JsonResponse
     {
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
         $personal = Personal::findOrFail($cedula);
 
         $data = $request->validate([
@@ -91,11 +116,11 @@ class PersonalController extends Controller
 
         $personal->update($data);
 
-        // Actualizar o crear Docente si se envía especialidad
-        if (array_key_exists('especialidad', $data)) {
+        $docentePayload = $this->buildDocentePayload($data);
+        if ($docentePayload !== null && Docente::tableExists()) {
             Docente::updateOrCreate(
                 ['cedula_personal' => $cedula],
-                ['especialidad' => $data['especialidad'], 'turno' => $data['turno'] ?? null]
+                $docentePayload
             );
         }
 
@@ -104,8 +129,50 @@ class PersonalController extends Controller
 
     public function destroy(int $cedula): JsonResponse
     {
+        if (! Personal::tableExists()) {
+            return $this->tableUnavailableResponse('Personal');
+        }
+
         $personal = Personal::findOrFail($cedula);
         $personal->delete();
+
         return response()->json(['message' => 'Personal eliminado.']);
+    }
+
+    private function buildQuery(Request $request)
+    {
+        $query = Personal::query();
+        if (Docente::tableExists()) {
+            $query->with('docente');
+        }
+
+        return $query
+            ->when($request->filled('buscar'), fn ($query) =>
+                $query->where('nombres', 'like', "%{$request->buscar}%")
+                    ->orWhere('apellidos', 'like', "%{$request->buscar}%")
+                    ->orWhere('cedula_personal', 'like', "%{$request->buscar}%")
+            )
+            ->when($request->filled('cargo'), fn ($query) =>
+                $query->where('cargo', $request->cargo)
+            );
+    }
+
+    private function buildDocentePayload(array $data): ?array
+    {
+        if (!array_key_exists('especialidad', $data)) {
+            return null;
+        }
+
+        return [
+            'especialidad' => $data['especialidad'] ?? null,
+            'turno' => $data['turno'] ?? null,
+        ];
+    }
+
+    private function tableUnavailableResponse(string $tableName): JsonResponse
+    {
+        return response()->json([
+            'message' => "La tabla de {$tableName} no está disponible en la base de datos actual.",
+        ], 500);
     }
 }

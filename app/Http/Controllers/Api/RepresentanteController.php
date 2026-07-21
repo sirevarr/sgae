@@ -11,11 +11,9 @@ class RepresentanteController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Representante::when($request->buscar, fn($query) =>
-            $query->where('nombres', 'like', "%{$request->buscar}%")
-                  ->orWhere('apellidos', 'like', "%{$request->buscar}%")
-                  ->orWhere('cedula_representante', 'like', "%{$request->buscar}%")
-        )->orderBy('apellidos')->paginate(25);
+        $q = $this->buildQuery($request)
+            ->orderBy('apellidos')
+            ->paginate(25);
 
         return response()->json($q);
     }
@@ -30,7 +28,7 @@ class RepresentanteController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'cedula_representante'   => 'required|integer|unique:Representante,cedula_representante',
+            'cedula_representante'   => 'required|integer',
             'nacionalidad'           => 'required|string|max:30',
             'nombres'                => 'required|string|max:80',
             'apellidos'              => 'required|string|max:80',
@@ -41,6 +39,10 @@ class RepresentanteController extends Controller
             'correo'                 => 'nullable|email|max:120',
             'es_representante_legal' => 'sometimes|boolean',
         ]);
+
+        if (Representante::where('cedula_representante', $data['cedula_representante'])->exists()) {
+            return response()->json(['message' => 'La cédula del representante ya existe.'], 422);
+        }
 
         return response()->json(Representante::create($data), 201);
     }
@@ -59,6 +61,27 @@ class RepresentanteController extends Controller
             'es_representante_legal' => 'sometimes|boolean',
         ]);
         $rep->update($data);
+
         return response()->json($rep->fresh());
+    }
+
+    public function destroy(int $cedula): JsonResponse
+    {
+        $rep = Representante::findOrFail($cedula);
+        try {
+            $rep->delete();
+            return response()->json(null, 204);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['error' => 'No se puede eliminar el representante porque tiene registros relacionados.'], 409);
+        }
+    }
+
+    private function buildQuery(Request $request)
+    {
+        return Representante::when($request->filled('buscar'), fn ($query) =>
+            $query->where('nombres', 'like', "%{$request->buscar}%")
+                ->orWhere('apellidos', 'like', "%{$request->buscar}%")
+                ->orWhere('cedula_representante', 'like', "%{$request->buscar}%")
+        );
     }
 }

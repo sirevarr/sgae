@@ -17,12 +17,17 @@ class GradoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'codigo_grado'    => 'required|string|max:10|unique:Grado,codigo_grado',
+            'codigo_grado'    => 'required|string|max:10',
             'nombre'          => 'required|string|max:60',
             'nivel_educativo' => 'required|string|max:40',
             'numero_ano'      => 'required|integer|min:1|max:6',
             'estado'          => 'sometimes|string|max:20',
         ]);
+
+        $exists = Grado::where('codigo_grado', $data['codigo_grado'])->exists();
+        if ($exists) {
+            return response()->json(['message' => 'El código de grado ya existe.'], 422);
+        }
         return response()->json(Grado::create($data), 201);
     }
 

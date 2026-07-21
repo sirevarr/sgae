@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTableExists;
 use Illuminate\Database\Eloquent\Model;
 
 class Institucion extends Model
@@ -11,6 +12,8 @@ class Institucion extends Model
     public $incrementing = false;
     protected $keyType = 'string';
     public $timestamps = false;
+
+    use HasTableExists;
 
     protected $fillable = [
         'codigo_dea',

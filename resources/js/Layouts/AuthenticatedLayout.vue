@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 
 const showingNavigation = ref(false);
 const page = usePage();
@@ -45,6 +44,7 @@ const navGroups = [
             { name: 'estudiantes.index', label: 'Estudiantes', icon: '🧑‍🎓' },
             { name: 'representantes.index', label: 'Representantes', icon: '👨‍👩‍👦' },
             { name: 'matriculas.index', label: 'Matrículas', icon: '📝' },
+            { name: 'inscripciones.index', label: 'Inscripciones', icon: '📋' },
         ]
     },
     {

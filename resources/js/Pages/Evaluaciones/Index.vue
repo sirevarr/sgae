@@ -44,9 +44,9 @@ const obtenerNombreGrado = (n) => {
 
 // --- CÁLCULO AUTOMÁTICO ---
 watch([() => form.value.nota_parcial1, () => form.value.nota_parcial2, () => form.value.nota_final], () => {
-    const p1 = parseFloat(form.value.nota_parcial1) || 0;
-    const p2 = parseFloat(form.value.nota_parcial2) || 0;
-    const nf = parseFloat(form.value.nota_final) || 0;
+    const p1 = Number.parseFloat(form.value.nota_parcial1) || 0;
+    const p2 = Number.parseFloat(form.value.nota_parcial2) || 0;
+    const nf = Number.parseFloat(form.value.nota_final) || 0;
     const resultado = (p1 + p2 + nf) / 3;
     form.value.promedio = resultado.toFixed(2);
     form.value.estado = resultado >= 9.5 ? 'aprobado' : 'reprobado';
@@ -131,7 +131,7 @@ const guardar = async () => {
             await axios.put(`/api/evaluaciones/${editandoId.value}`, payload);
             alert('Evaluación actualizada con éxito');
         } else {
-            const response = await axios.post('/api/evaluaciones', payload);
+            await axios.post('/api/evaluaciones', payload);
             alert('Evaluación creada exitosamente');
         }
         await cargarDatos();
@@ -161,8 +161,9 @@ const eliminar = async (id) => {
             await axios.delete(`/api/evaluaciones/${id}`);
             await cargarDatos();
             alert('Evaluación eliminada con éxito');
-        } catch (e) {
-            alert("No se pudo eliminar el registro.");
+        } catch (error) {
+            console.error('No se pudo eliminar el registro.', error);
+            alert('No se pudo eliminar el registro.');
         }
     }
 };
@@ -171,7 +172,9 @@ onMounted(cargarDatos);
 </script>
 
 <template>
-    <Head title="Evaluaciones" />
+    <Head>
+        <title>Evaluaciones</title>
+    </Head>
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
@@ -188,24 +191,29 @@ onMounted(cargarDatos);
                             + Cargar Notas
                         </button>
                         
-                        <input v-model="busqueda" type="text" placeholder="Buscar por nombre o cédula..." class="flex-1 border-sky-100 focus:ring-sky-500 rounded-xl px-4 py-3 shadow-sm min-w-[200px]" />
+                        <label for="busqueda-evaluaciones" class="sr-only">Buscar evaluación</label>
+                        <input id="busqueda-evaluaciones" v-model="busqueda" type="text" placeholder="Buscar por nombre o cédula..." class="flex-1 border-sky-100 focus:ring-sky-500 rounded-xl px-4 py-3 shadow-sm min-w-[200px]" />
                         
-                        <select v-model="filtroGrado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
+                        <label for="filtro-grado" class="sr-only">Filtrar por grado</label>
+                        <select id="filtro-grado" v-model="filtroGrado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todos los grados</option>
                             <option v-for="n in 5" :key="n" :value="n">{{ obtenerNombreGrado(n) }}</option>
                         </select>
 
-                        <select v-model="filtroSeccion" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
+                        <label for="filtro-seccion" class="sr-only">Filtrar por sección</label>
+                        <select id="filtro-seccion" v-model="filtroSeccion" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todas las secciones</option>
                             <option v-for="letra in ['A', 'B', 'C', 'D', 'U']" :key="letra" :value="letra">Sección {{ letra }}</option>
                         </select>
 
-                        <select v-model="filtroPeriodo" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
+                        <label for="filtro-periodo" class="sr-only">Filtrar por período</label>
+                        <select id="filtro-periodo" v-model="filtroPeriodo" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todos los períodos</option>
                             <option v-for="p in periodosDisponibles" :key="p" :value="p">{{ p }}</option>
                         </select>
 
-                        <select v-model="filtroEstado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
+                        <label for="filtro-estado" class="sr-only">Filtrar por estado</label>
+                        <select id="filtro-estado" v-model="filtroEstado" class="border-sky-100 rounded-xl text-sky-700 font-bold py-3 px-4 shadow-sm text-sm">
                             <option value="">Todos los estados</option>
                             <option value="aprobado">Aprobado</option>
                             <option value="reprobado">Reprobado</option>
@@ -288,8 +296,8 @@ onMounted(cargarDatos);
                 <h3 class="text-2xl font-black text-sky-500 uppercase mb-6 text-center">Panel de Calificaciones</h3>
                 <form @submit.prevent="guardar" class="space-y-4">
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Alumno e Inscripción</label>
-                        <select v-model="form.inscripcion_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required :disabled="!!editandoId">
+                        <label for="inscripcion-select" class="text-[10px] font-black text-sky-400 uppercase ml-1">Alumno e Inscripción</label>
+                        <select id="inscripcion-select" v-model="form.inscripcion_id" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-sm" required :disabled="!!editandoId" aria-label="Alumno e Inscripción">
                             <option value="">Seleccione Estudiante</option>
                             <option v-for="i in inscripciones" :key="i.id" :value="i.id">
                                 [{{ i.estudiante?.cedula }}] — {{ i.estudiante?.apellidos }}, {{ i.estudiante?.nombres }} — {{ i.materia?.codigo_materia }} {{ i.materia?.nombre }} — {{ i.periodo }}
@@ -298,31 +306,31 @@ onMounted(cargarDatos);
                     </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1">
-                            <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Fecha de Evaluación</label>
-                            <input v-model="form.fecha" type="date" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required />
+                            <label for="fecha-evaluacion" class="text-[10px] font-black text-sky-400 uppercase ml-1">Fecha de Evaluación</label>
+                            <input id="fecha-evaluacion" v-model="form.fecha" type="date" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold" required aria-label="Fecha de Evaluación" />
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Promedio Automático</label>
+                            <p class="text-[10px] font-black text-sky-400 uppercase ml-1">Promedio Automático</p>
                             <div class="w-full rounded-xl bg-sky-50 py-2.5 text-center font-black text-sky-600 text-xl border border-sky-100">{{ form.promedio }}</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-3 gap-3">
                         <div class="space-y-1">
-                            <label class="text-[9px] font-black text-gray-400 uppercase text-center block">Parcial 1</label>
-                            <input v-model="form.nota_parcial1" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-center" />
+                            <label for="nota-parcial-1" class="text-[9px] font-black text-gray-400 uppercase text-center block">Parcial 1</label>
+                            <input id="nota-parcial-1" v-model="form.nota_parcial1" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-center" aria-label="Parcial 1" />
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[9px] font-black text-gray-400 uppercase text-center block">Parcial 2</label>
-                            <input v-model="form.nota_parcial2" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-center" />
+                            <label for="nota-parcial-2" class="text-[9px] font-black text-gray-400 uppercase text-center block">Parcial 2</label>
+                            <input id="nota-parcial-2" v-model="form.nota_parcial2" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-bold text-center" aria-label="Parcial 2" />
                         </div>
                         <div class="space-y-1">
-                            <label class="text-[9px] font-black text-sky-500 uppercase text-center block">Nota Final</label>
-                            <input v-model="form.nota_final" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-black text-center" />
+                            <label for="nota-final" class="text-[9px] font-black text-sky-500 uppercase text-center block">Nota Final</label>
+                            <input id="nota-final" v-model="form.nota_final" type="number" step="0.1" class="w-full rounded-xl border-sky-100 bg-sky-50/30 font-black text-center" aria-label="Nota Final" />
                         </div>
                     </div>
                     <div class="space-y-1">
-                        <label class="text-[10px] font-black text-sky-400 uppercase ml-1">Observaciones</label>
-                        <textarea v-model="form.observaciones" rows="2" class="w-full rounded-xl border-sky-100 bg-sky-50/30 text-sm" placeholder="Opcional..."></textarea>
+                        <label for="observaciones-evaluacion" class="text-[10px] font-black text-sky-400 uppercase ml-1">Observaciones</label>
+                        <textarea id="observaciones-evaluacion" v-model="form.observaciones" rows="2" class="w-full rounded-xl border-sky-100 bg-sky-50/30 text-sm" placeholder="Opcional..." aria-label="Observaciones"></textarea>
                     </div>
                     <div class="flex justify-end gap-3 mt-6 pt-6 border-t border-sky-50">
                         <button type="button" @click="mostrarModal = false" class="text-sky-400 font-black uppercase text-xs hover:text-sky-600 transition">Cerrar</button>

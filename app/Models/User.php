@@ -8,6 +8,5 @@ namespace App\Models;
  */
 class User extends Usuario
 {
-    // Hereda todo de Usuario.
-    // Laravel Auth usa este modelo porque config/auth.php apunta a App\Models\User.
+    protected $table = 'Usuario';
 }

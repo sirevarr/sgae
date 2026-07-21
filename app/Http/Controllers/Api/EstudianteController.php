@@ -13,8 +13,8 @@ class EstudianteController extends Controller
     public function index(Request $request): JsonResponse
     {
         $q = Estudiante::with('matriculaActual.seccion.grado')
-            ->when($request->buscar, fn($query) => $query->buscar($request->buscar))
-            ->when($request->estado, fn($query) => $query->where('estado_estudiante', $request->estado))
+            ->when($request->filled('buscar'), fn ($query) => $query->buscar($request->buscar))
+            ->when($request->filled('estado'), fn ($query) => $query->where('estado_estudiante', $request->estado))
             ->orderBy('apellidos')
             ->paginate(25);
 
@@ -36,7 +36,7 @@ class EstudianteController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'cedula_estudiante'    => 'required|string|max:20|unique:Estudiante,cedula_estudiante',
+            'cedula_estudiante'    => 'required|string|max:20',
             'tipo_documento'       => 'required|string|in:V,E',
             'nacionalidad'         => 'nullable|string|max:30',
             'nombres'              => 'required|string|max:80',
@@ -54,6 +54,10 @@ class EstudianteController extends Controller
             'fecha_ingreso'        => 'nullable|date',
             'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado,trasladado',
         ]);
+
+        if (Estudiante::where('cedula_estudiante', $data['cedula_estudiante'])->exists()) {
+            return response()->json(['message' => 'La cédula del estudiante ya existe.'], 422);
+        }
 
         $data['estado_estudiante'] ??= 'activo';
         return response()->json(Estudiante::create($data), 201);
@@ -105,5 +109,16 @@ class EstudianteController extends Controller
         );
 
         return response()->json($ficha, 201);
+    }
+
+    public function destroy(string $cedula): JsonResponse
+    {
+        $estudiante = Estudiante::findOrFail($cedula);
+        try {
+            $estudiante->delete();
+            return response()->json(null, 204);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json(['error' => 'No se puede eliminar el estudiante porque existen registros relacionados.'], 409);
+        }
     }
 }

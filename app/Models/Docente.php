@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTableExists;
 use Illuminate\Database\Eloquent\Model;
 
 class Docente extends Model
 {
+    use HasTableExists;
+
     protected $table = 'Docente';
     protected $primaryKey = 'cedula_personal';
     public $incrementing = false;
@@ -41,6 +44,6 @@ class Docente extends Model
     /** Nombre completo a través de Personal */
     public function getNombreCompletoAttribute(): string
     {
-        return $this->personal ? $this->personal->nombre_completo : '';
+        return $this->personal?->nombre_completo ?? '';
     }
 }

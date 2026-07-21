@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTableExists;
 use Illuminate\Database\Eloquent\Model;
 
 class Personal extends Model
 {
+    use HasTableExists;
+
     protected $table = 'Personal';
     protected $primaryKey = 'cedula_personal';
     public $incrementing = false;

@@ -17,9 +17,13 @@ class MencionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'nombre' => 'required|string|max:100|unique:Mencion,nombre',
+            'nombre' => 'required|string|max:100',
             'estado' => 'sometimes|string|max:20',
         ]);
+
+        if (Mencion::where('nombre', $data['nombre'])->exists()) {
+            return response()->json(['message' => 'La mención ya existe.'], 422);
+        }
         return response()->json(Mencion::create($data), 201);
     }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Evaluacion;
 use App\Models\Matricula;
 use App\Models\MateriaPendiente;
+use App\Models\MomentoEvaluativo;
 use App\Models\ParametroSistema;
 use App\Models\PlanEstudios;
 use Illuminate\Http\JsonResponse;
@@ -53,10 +54,15 @@ class EvaluacionController extends Controller
 
         $evaluaciones = $evalQuery->get()->groupBy(['cedula_estudiante', 'siglas_materia']);
 
+        $momentos = MomentoEvaluativo::where('codigo_ano_escolar', $request->codigo_ano_escolar)
+            ->orderBy('numero_momento')
+            ->get();
+
         return response()->json([
             'matriculas'   => $matriculas,
             'plan'         => $plan,
             'evaluaciones' => $evaluaciones,
+            'momentos'     => $momentos,
             'nota_minima'  => ParametroSistema::notaMinima(),
         ]);
     }
@@ -78,6 +84,14 @@ class EvaluacionController extends Controller
             'es_revision'             => 'sometimes|boolean',
             'motivo_modificacion'     => 'nullable|string',
         ]);
+
+        if (!MomentoEvaluativo::where('numero_momento', $data['numero_momento'])
+            ->where('codigo_ano_escolar', $data['codigo_ano_escolar'])
+            ->exists()) {
+            return response()->json([
+                'message' => 'Momento evaluativo no existe para el año escolar indicado.',
+            ], 422);
+        }
 
         $evaluacion = Evaluacion::updateOrCreate(
             [
@@ -120,6 +134,22 @@ class EvaluacionController extends Controller
             'notas.*.numero_momento'    => 'required|integer|in:1,2,3',
             'notas.*.nota'              => 'required|numeric|min:0|max:20',
         ]);
+
+        $momentosSolicitados = collect($request->notas)
+            ->map(fn ($item) => [
+                'numero_momento'     => $item['numero_momento'],
+                'codigo_ano_escolar' => $item['codigo_ano_escolar'],
+            ])
+            ->unique()
+            ->values();
+
+        foreach ($momentosSolicitados as $momento) {
+            if (!MomentoEvaluativo::where($momento)->exists()) {
+                return response()->json([
+                    'message' => "El momento {$momento['numero_momento']} no existe para el año escolar {$momento['codigo_ano_escolar']}.",
+                ], 422);
+            }
+        }
 
         DB::transaction(function () use ($request) {
             foreach ($request->notas as $item) {
@@ -178,28 +208,19 @@ class EvaluacionController extends Controller
         $resumen    = [];
 
         foreach ($matriculas as $matricula) {
-            $cedula     = $matricula->cedula_estudiante;
-            $filaEst    = [];
-            $promedios  = [];
+            $cedula    = $matricula->cedula_estudiante;
+            $filaEst   = [];
+            $promedios = [];
 
             // Acceso seguro via Collection::get() — evita TypeError si no hay notas para ese estudiante
             $evalsEstudiante = $evaluaciones->get($cedula);
 
             foreach ($plan as $pe) {
                 $siglas       = $pe->siglas_materia;
-                $notas        = [];
                 $evalsMateria = $evalsEstudiante?->get($siglas);
-
-                for ($m = 1; $m <= 3; $m++) {
-                    $notas[$m] = $evalsMateria?->firstWhere('numero_momento', $m)?->nota;
-                }
-
-                // Filtra solo nulls; permite nota 0
-                $notasValidas = array_filter($notas, fn($n) => $n !== null);
-                $notaFinal    = count($notasValidas) > 0
-                    ? round(array_sum($notasValidas) / count($notasValidas), 2)
-                    : null;
-                $resultado    = $notaFinal !== null ? ($notaFinal >= $notaMinima ? 'A' : 'R') : 'P';
+                $notas        = $this->obtenerNotasPorMomento($evalsMateria);
+                $notaFinal    = $this->calcularNotaFinal($notas);
+                $resultado    = $this->determinarResultado($notaFinal, $notaMinima);
 
                 $filaEst[$siglas] = [
                     'm1'        => $notas[1],
@@ -230,5 +251,25 @@ class EvaluacionController extends Controller
             'resumen'    => $resumen,
             'nota_minima' => $notaMinima,
         ]);
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'cedula_estudiante'  => 'required|string|exists:Estudiante,cedula_estudiante',
+            'siglas_materia'     => 'required|string|exists:Materia,siglas',
+            'id_mencion'         => 'required|integer',
+            'codigo_grado'       => 'required|string',
+            'codigo_ano_escolar' => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
+            'numero_momento'     => 'required|integer|in:1,2,3',
+        ]);
+
+        $deleted = Evaluacion::where($data)->delete();
+
+        if ($deleted) {
+            return response()->json(null, 204);
+        }
+
+        return response()->json(['message' => 'Evaluación no encontrada o no eliminada.'], 404);
     }
 }

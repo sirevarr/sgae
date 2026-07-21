@@ -1,8 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
-import axios from 'axios';
+import { ref } from 'vue';
 
 const props = defineProps({ stats: Object });
 
@@ -42,7 +41,9 @@ const colorMap = {
 </script>
 
 <template>
-    <Head title="Dashboard — SGAE" />
+    <Head>
+        <title>Dashboard — SGAE</title>
+    </Head>
 
     <AuthenticatedLayout>
         <template #header>

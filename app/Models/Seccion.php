@@ -77,24 +77,35 @@ class Seccion extends Model
 
     public function getTurnoAttribute($value): string
     {
-        $val = strtolower(trim($value));
-        if ($val === 'm') return 'mañana';
-        if ($val === 't') return 'tarde';
-        if ($val === 'n') return 'nocturno';
-        return $value;
+        return $this->normalizarTurnoTexto((string) $value);
     }
 
     public function setTurnoAttribute($value): void
     {
+        $this->attributes['turno'] = $this->normalizarTurnoCodigo($value);
+    }
+
+    private function normalizarTurnoTexto(string $value): string
+    {
         $val = strtolower(trim($value));
-        if ($val === 'mañana' || $val === 'm') {
-            $this->attributes['turno'] = 'M';
-        } elseif ($val === 'tarde' || $val === 't') {
-            $this->attributes['turno'] = 'T';
-        } elseif ($val === 'nocturno' || $val === 'n') {
-            $this->attributes['turno'] = 'N';
-        } else {
-            $this->attributes['turno'] = substr(strtoupper($value), 0, 1);
-        }
+
+        return match ($val) {
+            'm' => 'mañana',
+            't' => 'tarde',
+            'n' => 'nocturno',
+            default => $value,
+        };
+    }
+
+    private function normalizarTurnoCodigo($value): string
+    {
+        $val = strtolower(trim((string) $value));
+
+        return match ($val) {
+            'mañana', 'm' => 'M',
+            'tarde', 't' => 'T',
+            'nocturno', 'n' => 'N',
+            default => substr(strtoupper((string) $value), 0, 1),
+        };
     }
 }

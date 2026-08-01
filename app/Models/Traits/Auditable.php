@@ -10,10 +10,6 @@ use Illuminate\Support\Facades\Auth;
  *
  * Proporciona auditoría de modificaciones sobre entidades sensibles del sistema.
  * Registra operaciones I (insert), U (update) y D (delete) en la tabla Auditoria.
- *
- * Uso:
- *   use App\Models\Traits\Auditable;
- *   Auditable::registrarAuditoria('Evaluacion', $id, 'U', $anterior, $nuevo);
  */
 trait Auditable
 {
@@ -34,18 +30,24 @@ trait Auditable
         ?array $valoresNuevos = null
     ): void {
         try {
+            $ip = request()->ip() ?? '127.0.0.1';
+
+            if ($valoresNuevos !== null) {
+                $valoresNuevos['_ip'] = $ip;
+            } elseif ($valoresAnteriores !== null) {
+                $valoresAnteriores['_ip'] = $ip;
+            }
+
             Auditoria::create([
                 'id_usuario'            => Auth::id(),
                 'tabla_afectada'        => $tabla,
-                'id_registro_afectado'  => $idRegistro,
-                'operacion'             => $operacion,
+                'id_registro_afectado'  => (string) $idRegistro,
+                'operacion'             => strtoupper(substr($operacion, 0, 1)),
                 'fecha_hora'            => now(),
                 'valores_anteriores'    => $valoresAnteriores ? json_encode($valoresAnteriores, JSON_UNESCAPED_UNICODE) : null,
                 'valores_nuevos'        => $valoresNuevos    ? json_encode($valoresNuevos,    JSON_UNESCAPED_UNICODE) : null,
             ]);
         } catch (\Throwable $e) {
-            // La auditoría NO debe interrumpir la operación principal.
-            // Registrar en log de Laravel para diagnóstico.
             \Illuminate\Support\Facades\Log::warning(
                 "[Auditable] No se pudo registrar auditoría en {$tabla} ({$operacion}): " . $e->getMessage()
             );

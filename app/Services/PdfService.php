@@ -214,13 +214,13 @@ class PdfService
             'codigo_ano_escolar' => $anio->codigo_ano_escolar,
             'seccion'            => $this->formatSeccionData($seccion),
             'tipo_boletin'       => $numero_momento ? "Momento {$numero_momento}" : 'Final',
-            'numero_momento' => $numero_momento,
-            'fecha_emision'  => now()->format('d/m/Y'),
-            'materias'       => $materiasData,
-            'ficha'          => $ficha ? [
-                'peso' => $ficha->peso,
+            'numero_momento'     => $numero_momento,
+            'fecha_emision'      => now()->format('d/m/Y'),
+            'materias'           => $materiasData,
+            'ficha'              => $ficha ? [
+                'peso'  => $ficha->peso,
                 'talla' => $ficha->estatura,
-                'imc' => ($ficha->estatura && $ficha->peso) ? round($ficha->peso / (($ficha->estatura / 100) ** 2), 1) : null,
+                'imc'   => ($ficha->estatura && $ficha->peso) ? round($ficha->peso / (($ficha->estatura / 100) ** 2), 1) : null,
             ] : null,
         ];
 

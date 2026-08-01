@@ -527,7 +527,6 @@ def generar_boletin(data, output_file):
         draw_centered_text('Gobernación del Estado Bolivariano de Miranda', line_height)
         draw_centered_text('Dirección General de Educación', 2*line_height)
 
-        codigo_ano = data.get('codigo_ano_escolar') or data.get('anio', {}).get('codigo', '')
         institucion = data.get('institucion', {})
         if institucion:
             codigo = institucion.get('codigo_plantel', 'OD00221508')
@@ -536,7 +535,8 @@ def generar_boletin(data, output_file):
             draw_centered_text(f'"{nombre}" COD-DEA: {codigo}', 3*line_height)
             draw_centered_text(f'{ciudad}', 4*line_height)
 
-        titulo_boleta = f"BOLETA DE CALIFICACIONES — AÑO ESCOLAR: {codigo_ano}" if codigo_ano else "BOLETA DE CALIFICACIONES"
+        codigo_ano_txt = data.get('codigo_ano_escolar') or data.get('anio', {}).get('codigo', '')
+        titulo_boleta = f"BOLETA DE CALIFICACIONES  —  AÑO ESCOLAR: {codigo_ano_txt}" if codigo_ano_txt else "BOLETA DE CALIFICACIONES"
         draw_centered_text(titulo_boleta, 5*line_height)
         canvas.restoreState()
 
@@ -554,17 +554,18 @@ def generar_boletin(data, output_file):
     cedula = f"{est.get('tipo_documento', 'V')}-{est.get('cedula', '')}"
     grado_nombre = sec.get('nombre_grado', '').upper()
     seccion_letra = sec.get('letra', 'A').upper()
-    gradosec = f'AÑO/GRADO: {grado_nombre}' if grado_nombre else ''
-    codigo_ano = data.get('codigo_ano_escolar') or data.get('anio', {}).get('codigo', '')
+    codigo_ano_txt = data.get('codigo_ano_escolar') or data.get('anio', {}).get('codigo', '')
+    gradosec = f'AÑO: {grado_nombre}' if grado_nombre else ''
+    ano_txt = f'AÑO ESCOLAR: {codigo_ano_txt}' if codigo_ano_txt else ''
 
     table_data = []
-    base_cols = ['N° DE LISTA:', f'{numero_lista}', '', 'AÑO ESCOLAR:', f'{codigo_ano}'] if len(momentos) <= 2 else ['N° DE LISTA:', f'{numero_lista}', '', 'AÑO ESCOLAR:', f'{codigo_ano}', '']
+    base_cols = ['N° DE LISTA:', f'{numero_lista}', '', '', ''] if len(momentos) <= 2 else ['N° DE LISTA:', f'{numero_lista}', '', '', '', '']
     table_data.append(base_cols)
     table_data.append(['CÉDULA:', cedula, '', '', ''] if len(momentos) <= 2 else ['CÉDULA:', cedula, '', '', '', ''])
     table_data.append(['APELLIDOS:', est.get('apellidos', '').upper(), '', '', ''] if len(momentos) <= 2 else ['APELLIDOS:', est.get('apellidos', '').upper(), '', '', '', ''])
     table_data.append(['NOMBRES:', est.get('nombres', '').upper(), '', '', ''] if len(momentos) <= 2 else ['NOMBRES:', est.get('nombres', '').upper(), '', '', '', ''])
     table_data.append(['', '', '', '', ''] if len(momentos) <= 2 else ['', '', '', '', '', ''])
-    table_data.append(['', '', f'{gradosec}     ', f'     SECCIÓN: "{seccion_letra}"', ''] if len(momentos) <= 2 else ['', '', f'{gradosec}     ', f'     SECCIÓN: "{seccion_letra}"', '', ''])
+    table_data.append(['', '', f'{gradosec}     ', f'     SECCIÓN: "{seccion_letra}"     {ano_txt}', ''] if len(momentos) <= 2 else ['', '', f'{gradosec}     ', f'     SECCIÓN: "{seccion_letra}"     {ano_txt}', '', ''])
     table_data.append(['', '', '', '', ''] if len(momentos) <= 2 else ['', '', '', '', '', ''])
 
     header_row = ['', '']

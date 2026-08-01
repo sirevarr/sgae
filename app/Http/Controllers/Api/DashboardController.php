@@ -8,6 +8,7 @@ use App\Models\Evaluacion;
 use App\Models\Materia;
 use App\Models\Matricula;
 use App\Models\MomentoEvaluativo;
+use App\Models\ParametroSistema;
 use App\Models\Personal;
 use App\Models\Seccion;
 use Illuminate\Http\JsonResponse;
@@ -22,25 +23,29 @@ class DashboardController extends Controller
     public function getStatsData(): array
     {
         $anioVigente = AnioEscolar::vigente();
-        $codigoAnio = $anioVigente?->codigo_ano_escolar;
+        $codigoAnio  = $anioVigente?->codigo_ano_escolar;
 
-        $estudiantesCount = Matricula::activa()->count();
-        $docentesCount = Personal::whereHas('docente')->count();
+        // Estudiantes matriculados en el año vigente (o total activo si no hay año vigente)
+        $estudiantesCount = $codigoAnio
+            ? Matricula::activa()->where('codigo_ano_escolar', $codigoAnio)->count()
+            : Matricula::activa()->count();
+
+        $docentesCount  = Personal::whereHas('docente')->where('estado', 'activo')->count();
         $seccionesCount = $codigoAnio ? Seccion::where('codigo_ano_escolar', $codigoAnio)->count() : 0;
-        $materiasCount = Materia::count();
+        $materiasCount  = Materia::count();
 
         $estadisticasEvaluacion = $this->estadisticasEvaluacion($codigoAnio);
-        $momentoActual = $this->momentoActual($codigoAnio);
+        $momentoActual          = $this->momentoActual($codigoAnio);
 
         return [
-            'estudiantesCount' => $estudiantesCount,
-            'docentesCount' => $docentesCount,
-            'seccionesCount' => $seccionesCount,
-            'materiasCount' => $materiasCount,
-            'promedioGlobal' => $estadisticasEvaluacion['promedioGlobal'],
+            'estudiantesCount'    => $estudiantesCount,
+            'docentesCount'       => $docentesCount,
+            'seccionesCount'      => $seccionesCount,
+            'materiasCount'       => $materiasCount,
+            'promedioGlobal'      => $estadisticasEvaluacion['promedioGlobal'],
             'porcentajeAprobados' => $estadisticasEvaluacion['porcentajeAprobados'],
-            'anioVigente' => $codigoAnio ?? 'Sin año vigente',
-            'momentoActual' => $momentoActual?->nombre ?? 'Sin momento activo',
+            'anioVigente'         => $codigoAnio ?? 'Sin año vigente',
+            'momentoActual'       => $momentoActual?->nombre ?? 'Sin momento activo',
         ];
     }
 
@@ -58,11 +63,11 @@ class DashboardController extends Controller
             return ['promedioGlobal' => 0, 'porcentajeAprobados' => 0];
         }
 
-        $notaMinima = \App\Models\ParametroSistema::notaMinima();
-        $aprobados = $evaluaciones->where('nota', '>=', $notaMinima)->count();
+        $notaMinima = ParametroSistema::notaMinima();
+        $aprobados  = $evaluaciones->where('nota', '>=', $notaMinima)->count();
 
         return [
-            'promedioGlobal' => round($evaluaciones->avg('nota'), 2),
+            'promedioGlobal'      => round($evaluaciones->avg('nota'), 2),
             'porcentajeAprobados' => round(($aprobados / $evaluaciones->count()) * 100, 1),
         ];
     }

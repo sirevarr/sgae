@@ -94,19 +94,8 @@ async function eliminar(item) {
 
 // ── Punto 6: funciones de copia ──────────────────────────────
 function abrirCopia(item) {
-    // Si el año seleccionado ya tiene datos o está cerrado, suele ser el origen
-    // Si es un año nuevo (planificado o sin datos), se coloca como el destino
-    const esAnioNuevo = item.estado === 'planificado' || !anios.value.some(a => a.codigo_ano_escolar === item.codigo_ano_escolar && a.estado === 'vigente');
-    const anioVigenteOAnterior = anios.value.find(a => a.codigo_ano_escolar !== item.codigo_ano_escolar) ?? item;
-
-    if (esAnioNuevo && anioVigenteOAnterior) {
-        copiaForm.codigo_ano_origen = anioVigenteOAnterior.codigo_ano_escolar;
-        copiaForm.codigo_ano_destino = item.codigo_ano_escolar;
-    } else {
-        copiaForm.codigo_ano_origen = item.codigo_ano_escolar;
-        copiaForm.codigo_ano_destino = '';
-    }
-
+    copiaForm.codigo_ano_origen = item.codigo_ano_escolar;
+    copiaForm.codigo_ano_destino = '';
     copiaForm.copiar_plan = true;
     copiaForm.copiar_secciones = true;
     copiaForm.copiar_asignaciones = false;
@@ -138,8 +127,12 @@ async function ejecutarCopia() {
     copiaMsg.value = '';
     try {
         const { data } = await axios.post('/api/anios-escolares/copiar-config', copiaForm);
-        copiaResultados.value = data.resultados;
-        copiaMsg.value = `Copiados: ${data.resultados.plan_copiados} materias, ${data.resultados.secciones_copiadas} secciones, ${data.resultados.asignaciones_copiadas} asignaciones.`;
+        const totalNuevos = (data.resultados.plan_copiados || 0) + (data.resultados.secciones_copiadas || 0) + (data.resultados.asignaciones_copiadas || 0);
+        if (totalNuevos > 0) {
+            copiaMsg.value = `Nuevos registros creados: ${data.resultados.plan_copiados} materias, ${data.resultados.secciones_copiadas} secciones, ${data.resultados.asignaciones_copiadas} asignaciones.`;
+        } else {
+            copiaMsg.value = `No se crearon nuevos registros (0 copiados). Todas las materias, secciones y asignaciones ya existían en el año destino (${copiaForm.codigo_ano_destino}) y se evitó su duplicación.`;
+        }
         if (data.resultados.errores?.length) {
             copiaMsg.value += `\n${data.resultados.errores.length} error(es) parciales.`;
         }
@@ -264,19 +257,14 @@ onMounted(cargar);
                         <!-- Selectores de año -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="lbl">Año Origen (Copiar desde) *</label>
-                                <select v-model="copiaForm.codigo_ano_origen" class="inp" @change="preview=null; copiaResultados=null">
-                                    <option value="">— Seleccionar Origen —</option>
-                                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
-                                        {{ a.codigo_ano_escolar }} ({{ a.estado }})
-                                    </option>
-                                </select>
+                                <label class="lbl">Año Origen</label>
+                                <input :value="copiaForm.codigo_ano_origen" disabled class="inp bg-crema/60 cursor-not-allowed" />
                             </div>
                             <div>
-                                <label class="lbl">Año Destino (Copiar hacia) *</label>
+                                <label class="lbl">Año Destino *</label>
                                 <select v-model="copiaForm.codigo_ano_destino" class="inp" @change="preview=null; copiaResultados=null">
-                                    <option value="">— Seleccionar Destino —</option>
-                                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
+                                    <option value="">— Seleccionar —</option>
+                                    <option v-for="a in aniosDestino" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
                                         {{ a.codigo_ano_escolar }} ({{ a.estado }})
                                     </option>
                                 </select>

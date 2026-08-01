@@ -208,11 +208,12 @@ class PdfService
         })->values()->toArray();
 
         $payload = [
-            'institucion'    => $this->formatInstitucionData($institucion),
-            'estudiante'     => $this->formatEstudianteData($estudiante),
-            'anio'           => ['codigo' => $anio->codigo_ano_escolar, 'descripcion' => $anio->codigo_ano_escolar],
-            'seccion'        => $this->formatSeccionData($seccion),
-            'tipo_boletin'   => $numero_momento ? "Momento {$numero_momento}" : 'Final',
+            'institucion'        => $this->formatInstitucionData($institucion),
+            'estudiante'         => $this->formatEstudianteData($estudiante),
+            'anio'               => ['codigo' => $anio->codigo_ano_escolar, 'descripcion' => $anio->codigo_ano_escolar],
+            'codigo_ano_escolar' => $anio->codigo_ano_escolar,
+            'seccion'            => $this->formatSeccionData($seccion),
+            'tipo_boletin'       => $numero_momento ? "Momento {$numero_momento}" : 'Final',
             'numero_momento' => $numero_momento,
             'fecha_emision'  => now()->format('d/m/Y'),
             'materias'       => $materiasData,

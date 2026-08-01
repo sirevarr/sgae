@@ -296,8 +296,8 @@
     <div class="dato-bloque">
         <p class="dato-etiqueta">Grado y Sección</p>
         <p class="dato-valor">{{ $seccion->grado->nombre ?? '' }} &nbsp; Secc. {{ $seccion->letra }}</p>
-        <p class="dato-etiqueta">Mención</p>
-        <p class="dato-valor">{{ $seccion->mencion->nombre ?? '—' }}</p>
+        <p class="dato-etiqueta">Año Escolar / Mención</p>
+        <p class="dato-valor"><strong>{{ $anio->codigo_ano_escolar }}</strong> &nbsp;|&nbsp; {{ $seccion->mencion->nombre ?? 'Sin mención' }}</p>
     </div>
     <div class="dato-bloque">
         <p class="dato-etiqueta">N° de Lista</p>

@@ -24,6 +24,7 @@ const viewing     = ref(false);
 const saving      = ref(false);
 const errors      = ref({});
 const successMsg  = ref('');
+const errorMsg    = ref('');
 
 // ── Form de sección ───────────────────────────────────────────
 const form = reactive({
@@ -118,13 +119,17 @@ async function guardar() {
 
 async function eliminar(s) {
     if (!confirm(`¿Eliminar sección ${s.letra} (${s.codigo_seccion})?`)) return;
+    errorMsg.value = '';
+    successMsg.value = '';
     try {
         await axios.delete(`/api/secciones/${s.codigo_seccion}`);
         successMsg.value = 'Sección eliminada.';
         setTimeout(() => successMsg.value = '', 3000);
         cargar();
     } catch (e) {
-        alert(e.response?.data?.error ?? e.message);
+        const msg = e.response?.data?.error ?? e.response?.data?.message ?? e.message;
+        errorMsg.value = msg;
+        alert('⚠️ ' + msg);
     }
 }
 
@@ -205,6 +210,12 @@ onMounted(async () => { await cargarCatalogos(); cargar(); });
         <div v-if="successMsg" class="mb-4 bg-[#E6EEE0] border border-ok/30 text-ok text-[12px] font-semibold px-4 py-2.5 rounded-[4px] flex justify-between items-center">
             <span>{{ successMsg }}</span>
             <button @click="successMsg = ''" class="text-ok/70 hover:text-ok ml-4">&times;</button>
+        </div>
+
+        <!-- Error -->
+        <div v-if="errorMsg" class="mb-4 bg-[#F4DEDA] border border-rojo/20 text-rojo-dark text-[12px] font-semibold px-4 py-3 rounded-[4px] flex justify-between items-center">
+            <span>⚠️ {{ errorMsg }}</span>
+            <button @click="errorMsg = ''" class="text-rojo-dark/70 hover:text-rojo-dark ml-4">&times;</button>
         </div>
 
         <!-- Grid de secciones -->

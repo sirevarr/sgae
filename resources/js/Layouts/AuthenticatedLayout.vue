@@ -43,8 +43,8 @@ const navGroups = [
     {
         label: 'Estudiantes',
         links: [
-            { name: 'estudiantes.index',    label: 'Estudiantes',    roles: ['administrador', 'control_estudios', 'docente'] },
             { name: 'representantes.index', label: 'Representantes', roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'estudiantes.index',    label: 'Estudiantes',    roles: ['administrador', 'control_estudios', 'docente'] },
             { name: 'matriculas.index',     label: 'Matrículas',     roles: ['administrador', 'control_estudios', 'docente'] },
         ]
     },

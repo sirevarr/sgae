@@ -31,7 +31,7 @@ class AnioEscolarController extends Controller
             'codigo_ano_escolar' => 'required|string|max:10|unique:Anio_Escolar,codigo_ano_escolar',
             'fecha_inicio'       => 'nullable|date',
             'fecha_fin'          => 'nullable|date|after_or_equal:fecha_inicio',
-            'estado'             => 'required|in:vigente,finalizado,planificado',
+            'estado'             => 'required|in:vigente,cerrado,planificado',
         ]);
 
         $this->sincronizarEstadoVigente($data);
@@ -46,7 +46,7 @@ class AnioEscolarController extends Controller
         $data = $request->validate([
             'fecha_inicio' => 'sometimes|date',
             'fecha_fin'    => 'sometimes|date',
-            'estado'       => 'sometimes|in:vigente,finalizado,planificado',
+            'estado'       => 'sometimes|in:vigente,cerrado,planificado',
         ]);
 
         $this->sincronizarEstadoVigente($data, $codigo);
@@ -85,6 +85,6 @@ class AnioEscolarController extends Controller
     {
         AnioEscolar::where('estado', self::ESTADO_VIGENTE)
             ->when($codigo !== null, fn ($query) => $query->where('codigo_ano_escolar', '!=', $codigo))
-            ->update(['estado' => 'finalizado']);
+            ->update(['estado' => 'cerrado']);
     }
 }

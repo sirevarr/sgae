@@ -6,167 +6,229 @@ const showingNavigation = ref(false);
 const page = usePage();
 
 const user = computed(() => page.props.auth?.user);
+const userRole = computed(() => String(user.value?.rol ?? 'docente').trim().toLowerCase());
+
+const initials = computed(() => {
+    const code = user.value?.codigo_usuario ?? 'U';
+    return code.slice(0, 2).toUpperCase();
+});
 
 const navGroups = [
     {
         label: 'Administración',
-        color: 'sky',
         links: [
-            { name: 'dashboard', label: 'Inicio', icon: '🏠' },
-            { name: 'institucion.index', label: 'Institución', icon: '🏫' },
-            { name: 'personal.index', label: 'Personal', icon: '👤' },
-            { name: 'usuarios.index', label: 'Usuarios', icon: '🔑' },
+            { name: 'dashboard',        label: 'Inicio',          roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'institucion.index', label: 'Institución',     roles: ['administrador'] },
+            { name: 'personal.index',   label: 'Personal',        roles: ['administrador', 'control_estudios'] },
+            { name: 'usuarios.index',   label: 'Usuarios',        roles: ['administrador'] },
         ]
     },
     {
         label: 'Estructura Académica',
-        color: 'indigo',
         links: [
-            { name: 'anios.index', label: 'Años Escolares', icon: '📅' },
-            { name: 'grados.index', label: 'Grados', icon: '📊' },
-            { name: 'menciones.index', label: 'Menciones', icon: '🎓' },
-            { name: 'materias.index', label: 'Materias', icon: '📚' },
-            { name: 'plan.index', label: 'Plan de Estudios', icon: '📋' },
+            { name: 'anios.index',    label: 'Años Escolares',   roles: ['administrador', 'control_estudios'] },
+            { name: 'grados.index',   label: 'Grados',           roles: ['administrador', 'control_estudios'] },
+            { name: 'menciones.index', label: 'Menciones',       roles: ['administrador', 'control_estudios'] },
+            { name: 'materias.index', label: 'Materias',         roles: ['administrador', 'control_estudios'] },
+            { name: 'plan.index',     label: 'Plan de Estudios', roles: ['administrador', 'control_estudios'] },
         ]
     },
     {
         label: 'Gestión de Secciones',
-        color: 'violet',
         links: [
-            { name: 'secciones.index', label: 'Secciones', icon: '🗂️' },
-            { name: 'momentos.index', label: 'Momentos Evaluativos', icon: '⏱️' },
+            { name: 'secciones.index', label: 'Secciones',            roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'momentos.index',  label: 'Momentos Evaluativos', roles: ['administrador', 'control_estudios', 'docente'] },
         ]
     },
     {
         label: 'Estudiantes',
-        color: 'emerald',
         links: [
-            { name: 'estudiantes.index', label: 'Estudiantes', icon: '🧑‍🎓' },
-            { name: 'representantes.index', label: 'Representantes', icon: '👨‍👩‍👦' },
-            { name: 'matriculas.index', label: 'Matrículas', icon: '📝' },
-            { name: 'inscripciones.index', label: 'Inscripciones', icon: '📋' },
+            { name: 'estudiantes.index',    label: 'Estudiantes',    roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'representantes.index', label: 'Representantes', roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'matriculas.index',     label: 'Matrículas',     roles: ['administrador', 'control_estudios', 'docente'] },
         ]
     },
     {
         label: 'Control Académico',
-        color: 'amber',
         links: [
-            { name: 'evaluaciones.index', label: 'Evaluaciones', icon: '📈' },
-            { name: 'documentos.index', label: 'Documentos / PDF', icon: '🖨️' },
-            { name: 'auditoria.index', label: 'Auditoría', icon: '🔒' },
+            { name: 'evaluaciones.index', label: 'Evaluaciones',    roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'documentos.index',   label: 'Documentos / PDF', roles: ['administrador', 'control_estudios', 'docente'] },
+            { name: 'auditoria.index',    label: 'Auditoría',       roles: ['administrador'] },
         ]
     },
 ];
+
+const filteredNavGroups = computed(() => {
+    return navGroups
+        .map(group => ({
+            ...group,
+            links: group.links.filter(link => !link.roles || link.roles.includes(userRole.value))
+        }))
+        .filter(group => group.links.length > 0);
+});
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 flex">
+    <div class="min-h-screen bg-crema text-tinta flex font-sans">
 
-        <!-- ── SIDEBAR ──────────────────────────────────────────────── -->
-        <aside class="hidden lg:flex flex-col w-64 bg-slate-900 min-h-screen shadow-2xl shrink-0">
-            <!-- Logo -->
-            <div class="flex items-center gap-3 px-5 py-5 border-b border-slate-700">
-                <Link :href="route('dashboard')">
-                    <img src="/imagenes/SGAE.png" alt="SGAE" class="h-10 w-10 object-contain drop-shadow" />
-                </Link>
+        <!-- ═══ SIDEBAR ═══════════════════════════════════════════════ -->
+        <aside class="hidden lg:flex flex-col w-[220px] bg-tinta min-h-screen shrink-0">
+
+            <!-- Marca -->
+            <div class="flex items-center gap-3 px-5 py-5 border-b border-white/10">
+                <!-- Sello -->
+                <div class="relative w-9 h-9 shrink-0">
+                    <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
+                    <div class="absolute inset-[4px] rounded-full border border-rojo flex items-center justify-center overflow-hidden bg-paper">
+                        <img src="/imagenes/SGAE.png" alt="SGAE" class="w-full h-full object-contain p-0.5" />
+                    </div>
+                </div>
                 <div>
-                    <div class="text-white font-black text-lg leading-tight tracking-tight">SGAE</div>
-                    <div class="text-slate-400 text-[9px] uppercase tracking-widest font-semibold">Gestión Académica</div>
+                    <div class="text-paper font-serif font-semibold text-base leading-tight tracking-tight">SGAE</div>
+                    <div class="text-piedra-soft text-[10px] uppercase tracking-[0.08em] font-sans mt-0.5">Gestión Académica</div>
                 </div>
             </div>
 
-            <!-- Nav grupos -->
-            <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-4">
-                <template v-for="group in navGroups" :key="group.label">
+            <!-- Navegación -->
+            <nav class="flex-1 overflow-y-auto py-5 px-3 space-y-5">
+                <template v-for="group in filteredNavGroups" :key="group.label">
                     <div>
-                        <p class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 px-2 mb-1.5">{{ group.label }}</p>
+                        <p class="text-[10px] font-sans font-semibold uppercase tracking-[0.08em] text-piedra-soft px-2 mb-2">
+                            {{ group.label }}
+                        </p>
                         <div class="space-y-0.5">
                             <Link
                                 v-for="link in group.links"
                                 :key="link.name"
                                 :href="route(link.name)"
                                 :class="[
-                                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-150',
+                                    'block px-3 py-2 text-[13px] font-sans border-l-2 transition-colors duration-100',
                                     route().current(link.name)
-                                        ? 'bg-sky-600 text-white shadow-md'
-                                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                                        ? 'border-dorado bg-dorado/14 text-paper font-semibold'
+                                        : 'border-transparent text-piedra hover:text-paper hover:bg-white/5'
                                 ]"
                             >
-                                <span class="text-base leading-none">{{ link.icon }}</span>
-                                <span>{{ link.label }}</span>
+                                {{ link.label }}
                             </Link>
                         </div>
                     </div>
                 </template>
             </nav>
 
-            <!-- Usuario en la parte inferior -->
-            <div class="border-t border-slate-700 px-4 py-4">
+            <!-- Usuario -->
+            <div class="border-t border-white/10 px-4 py-4">
                 <div class="flex items-center gap-3">
-                    <div class="w-8 h-8 bg-sky-600 rounded-full flex items-center justify-center text-white font-black text-sm shrink-0">
-                        {{ user?.codigo_usuario?.[0]?.toUpperCase() ?? 'U' }}
+                    <!-- Sello usuario -->
+                    <div class="relative w-8 h-8 shrink-0">
+                        <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
+                        <div class="absolute inset-[4px] rounded-full border border-rojo flex items-center justify-center bg-tinta">
+                            <span class="font-serif text-[9px] font-bold text-paper leading-none">{{ initials }}</span>
+                        </div>
                     </div>
                     <div class="min-w-0">
-                        <p class="text-white text-xs font-bold truncate">{{ user?.codigo_usuario }}</p>
-                        <p class="text-slate-400 text-[10px] capitalize">{{ user?.rol }}</p>
+                        <p class="text-paper text-xs font-semibold truncate">{{ user?.codigo_usuario }}</p>
+                        <p class="text-piedra-soft text-[10px] uppercase tracking-[0.06em]">{{ user?.rol }}</p>
                     </div>
                 </div>
                 <Link
                     :href="route('logout')"
                     method="post"
                     as="button"
-                    class="mt-3 w-full text-center text-xs text-slate-400 hover:text-red-400 transition-colors font-semibold"
+                    class="mt-3 w-full text-center text-[11px] text-piedra hover:text-paper transition-colors"
                 >
                     Cerrar sesión
                 </Link>
             </div>
         </aside>
 
-        <!-- ── CONTENIDO PRINCIPAL ────────────────────────────────────── -->
+        <!-- ═══ CONTENIDO PRINCIPAL ═══════════════════════════════════ -->
         <div class="flex-1 flex flex-col min-w-0">
 
             <!-- Topbar móvil -->
-            <header class="lg:hidden bg-slate-900 px-4 py-3 flex items-center justify-between shadow-lg">
+            <header class="lg:hidden bg-paper border-b border-borde px-4 py-3 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <img src="/imagenes/SGAE.png" alt="SGAE" class="h-8 w-8 object-contain" />
-                    <span class="text-white font-black text-lg">SGAE</span>
+                    <div class="relative w-7 h-7 shrink-0">
+                        <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
+                        <div class="absolute inset-[3px] rounded-full border border-rojo flex items-center justify-center overflow-hidden bg-paper">
+                            <img src="/imagenes/SGAE.png" alt="SGAE" class="w-full h-full object-contain p-0.5" />
+                        </div>
+                    </div>
+                    <span class="text-tinta font-serif font-semibold text-base">SGAE</span>
                 </div>
-                <button @click="showingNavigation = !showingNavigation" class="text-slate-300 hover:text-white p-1">
-                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                <button @click="showingNavigation = !showingNavigation" class="text-piedra p-1">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             :d="showingNavigation ? 'M6 18L18 6M6 6l12 12' : 'M4 6h16M4 12h16M4 18h16'" />
                     </svg>
                 </button>
             </header>
 
-            <!-- Menú móvil desplegable -->
-            <div v-if="showingNavigation" class="lg:hidden bg-slate-800 border-b border-slate-700 px-4 py-3 space-y-2">
-                <template v-for="group in navGroups" :key="group.label + '_m'">
-                    <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 pt-2">{{ group.label }}</p>
-                    <Link
-                        v-for="link in group.links"
-                        :key="link.name + '_m'"
-                        :href="route(link.name)"
-                        @click="showingNavigation = false"
-                        class="flex items-center gap-2 px-2 py-1.5 rounded text-slate-300 hover:text-white hover:bg-slate-700 text-sm font-medium transition"
-                    >
-                        <span>{{ link.icon }}</span>
-                        <span>{{ link.label }}</span>
-                    </Link>
+            <!-- Nav móvil desplegable -->
+            <div v-if="showingNavigation" class="lg:hidden bg-tinta border-b border-white/10 px-4 py-3 space-y-4">
+                <template v-for="group in filteredNavGroups" :key="group.label + '_m'">
+                    <div>
+                        <p class="text-[10px] font-semibold uppercase tracking-[0.08em] text-piedra-soft mb-1">{{ group.label }}</p>
+                        <Link
+                            v-for="link in group.links"
+                            :key="link.name + '_m'"
+                            :href="route(link.name)"
+                            @click="showingNavigation = false"
+                            :class="[
+                                'block px-3 py-2 text-sm border-l-2 transition-colors',
+                                route().current(link.name)
+                                    ? 'border-dorado bg-dorado/14 text-paper font-semibold'
+                                    : 'border-transparent text-piedra'
+                            ]"
+                        >
+                            {{ link.label }}
+                        </Link>
+                    </div>
                 </template>
+                <div class="pt-3 border-t border-white/10 flex justify-between items-center text-xs text-piedra">
+                    <span>{{ user?.codigo_usuario }} ({{ user?.rol }})</span>
+                    <Link :href="route('logout')" method="post" as="button" class="text-dorado">Salir</Link>
+                </div>
             </div>
 
-            <!-- Header de página (slot) -->
-            <header v-if="$slots.header" class="bg-white border-b border-slate-200 shadow-sm">
-                <div class="max-w-7xl mx-auto px-6 py-4">
+            <!-- Topbar escritorio -->
+            <header class="hidden lg:flex bg-paper border-b border-borde px-7 py-3.5 items-center justify-between shrink-0">
+                <div v-if="$slots.header" class="flex-1 min-w-0">
                     <slot name="header" />
+                </div>
+                <div v-else class="text-tinta font-serif font-semibold text-[19px]">Panel</div>
+                <!-- Usuario topbar -->
+                <div class="flex items-center gap-3 ml-auto">
+                    <div class="text-right">
+                        <p class="text-tinta text-xs font-semibold">{{ user?.codigo_usuario }}</p>
+                        <p class="text-piedra text-[10px] uppercase tracking-[0.06em]">{{ user?.rol }}</p>
+                    </div>
+                    <div class="relative w-8 h-8 shrink-0">
+                        <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
+                        <div class="absolute inset-[4px] rounded-full border border-rojo flex items-center justify-center bg-paper">
+                            <span class="font-serif text-[9px] font-bold text-tinta leading-none">{{ initials }}</span>
+                        </div>
+                    </div>
                 </div>
             </header>
 
-            <!-- Main content -->
-            <main class="flex-1 p-6">
-                <slot />
+            <!-- Flash error -->
+            <div v-if="$page.props.flash?.error"
+                class="bg-[#F4DEDA] border-b border-rojo/20 text-rojo-dark text-xs font-semibold px-6 py-2.5 flex justify-between items-center">
+                <span>{{ $page.props.flash.error }}</span>
+                <button @click="$page.props.flash.error = null" class="text-rojo-dark hover:text-rojo ml-4">&times;</button>
+            </div>
+
+            <!-- Contenido principal -->
+            <main class="flex-1 px-7 py-7 overflow-y-auto min-w-0 bg-crema">
+                <div class="max-w-[1440px] mx-auto w-full space-y-5">
+                    <slot />
+                </div>
             </main>
         </div>
     </div>
 </template>
+
+<style>
+/* Clase de utilidad dorado/14 no generada por Tailwind puro */
+.bg-dorado\/14 { background-color: rgba(184, 145, 46, 0.14); }
+</style>

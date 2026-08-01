@@ -47,9 +47,6 @@ class Usuario extends Authenticatable implements MustVerifyEmailContract
 
     protected $fillable = [
         'codigo_usuario',
-        'name',
-        'email',
-        'email_verified_at',
         'cedula_personal',
         'rol',
         'clave_hash',
@@ -57,7 +54,6 @@ class Usuario extends Authenticatable implements MustVerifyEmailContract
         'fecha_creacion',
         'ultimo_acceso',
         'intentos_fallidos',
-        'remember_token',
     ];
 
     protected $hidden = [
@@ -69,8 +65,37 @@ class Usuario extends Authenticatable implements MustVerifyEmailContract
         'ultimo_acceso'     => 'date',
         'cedula_personal'   => 'integer',
         'intentos_fallidos' => 'integer',
-        'email_verified_at' => 'datetime',
     ];
+
+    public function hasRole(array|string $roles): bool
+    {
+        $userRole = strtolower(trim($this->rol ?? 'docente'));
+        if ($userRole === 'administrador') {
+            return true;
+        }
+        $roleList = is_array($roles) ? $roles : explode(',', $roles);
+        foreach ($roleList as $r) {
+            if ($userRole === strtolower(trim($r))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole('administrador');
+    }
+
+    public function isControlEstudios(): bool
+    {
+        return $this->hasRole(['administrador', 'control_estudios']);
+    }
+
+    public function isDocente(): bool
+    {
+        return $this->hasRole('docente');
+    }
 
     public function personal()
     {

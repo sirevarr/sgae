@@ -16,6 +16,11 @@ class DashboardController extends Controller
 {
     public function stats(): JsonResponse
     {
+        return response()->json($this->getStatsData());
+    }
+
+    public function getStatsData(): array
+    {
         $anioVigente = AnioEscolar::vigente();
         $codigoAnio = $anioVigente?->codigo_ano_escolar;
 
@@ -27,7 +32,7 @@ class DashboardController extends Controller
         $estadisticasEvaluacion = $this->estadisticasEvaluacion($codigoAnio);
         $momentoActual = $this->momentoActual($codigoAnio);
 
-        return response()->json([
+        return [
             'estudiantesCount' => $estudiantesCount,
             'docentesCount' => $docentesCount,
             'seccionesCount' => $seccionesCount,
@@ -36,7 +41,7 @@ class DashboardController extends Controller
             'porcentajeAprobados' => $estadisticasEvaluacion['porcentajeAprobados'],
             'anioVigente' => $codigoAnio ?? 'Sin año vigente',
             'momentoActual' => $momentoActual?->nombre ?? 'Sin momento activo',
-        ]);
+        ];
     }
 
     private function estadisticasEvaluacion(?string $codigoAnio): array

@@ -31,7 +31,7 @@ class MomentoEvaluativoController extends Controller
             'fecha_inicio'       => 'nullable|date',
             'fecha_fin'          => 'nullable|date|after_or_equal:fecha_inicio',
             'porcentaje'         => 'nullable|numeric|min:0|max:100',
-            'estado'             => 'required|in:activo,finalizado,por_iniciar',
+            'estado'             => 'required|string|max:30',
         ]);
 
         $existe = MomentoEvaluativo::where([
@@ -59,7 +59,7 @@ class MomentoEvaluativoController extends Controller
             'fecha_inicio'       => 'sometimes|nullable|date',
             'fecha_fin'          => 'sometimes|nullable|date',
             'porcentaje'         => 'sometimes|nullable|numeric|min:0|max:100',
-            'estado'             => 'sometimes|in:activo,finalizado,por_iniciar',
+            'estado'             => 'sometimes|string|max:30',
         ]);
 
         if (($data['estado'] ?? null) === 'activo') {
@@ -98,6 +98,6 @@ class MomentoEvaluativoController extends Controller
         MomentoEvaluativo::where('codigo_ano_escolar', $codigoAnoEscolar)
             ->when($numeroMomento !== null, fn ($query) => $query->where('numero_momento', '!=', $numeroMomento))
             ->where('estado', 'activo')
-            ->update(['estado' => 'finalizado']);
+            ->update(['estado' => 'cerrado']);
     }
 }

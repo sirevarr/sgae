@@ -34,13 +34,27 @@ class GradoController extends Controller
     public function update(Request $request, string $codigo): JsonResponse
     {
         $grado = Grado::findOrFail($codigo);
-        $grado->update($request->only(['nombre', 'nivel_educativo', 'numero_ano', 'estado']));
+        $data = $request->validate([
+            'nombre'          => 'sometimes|string|max:60',
+            'nivel_educativo' => 'sometimes|string|max:40',
+            'numero_ano'      => 'sometimes|integer|min:1|max:6',
+            'estado'          => 'sometimes|string|max:20',
+        ]);
+        $grado->update($data);
         return response()->json($grado->fresh());
     }
 
     public function destroy(string $codigo): JsonResponse
     {
-        Grado::findOrFail($codigo)->delete();
-        return response()->json(['message' => 'Grado eliminado.']);
+        $grado = Grado::findOrFail($codigo);
+        try {
+            $grado->delete();
+            return response()->json(['message' => 'Grado eliminado correctamente.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'message' => 'No se puede eliminar el grado porque tiene registros asociados (secciones o plan de estudios).',
+                'error' => 'No se puede eliminar el grado porque tiene registros asociados.'
+            ], 409);
+        }
     }
 }

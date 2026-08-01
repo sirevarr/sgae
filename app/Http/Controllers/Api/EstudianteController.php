@@ -37,11 +37,11 @@ class EstudianteController extends Controller
     {
         $data = $request->validate([
             'cedula_estudiante'    => 'required|string|max:20',
-            'tipo_documento'       => 'required|string|in:V,E',
+            'tipo_documento'       => 'required|string|max:10',
             'nacionalidad'         => 'nullable|string|max:30',
             'nombres'              => 'required|string|max:80',
             'apellidos'            => 'required|string|max:80',
-            'genero'               => 'required|string|in:M,F',
+            'genero'               => 'required|string|max:20',
             'fecha_nacimiento'     => 'nullable|date',
             'lugar_nacimiento'     => 'nullable|string|max:80',
             'estado_nacimiento'    => 'nullable|string|max:60',
@@ -52,7 +52,7 @@ class EstudianteController extends Controller
             'condiciones_medicas'  => 'nullable|string',
             'medicamentos'         => 'nullable|string',
             'fecha_ingreso'        => 'nullable|date',
-            'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado,trasladado',
+            'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado',
         ]);
 
         if (Estudiante::where('cedula_estudiante', $data['cedula_estudiante'])->exists()) {
@@ -68,9 +68,11 @@ class EstudianteController extends Controller
         $estudiante = Estudiante::findOrFail($cedula);
 
         $data = $request->validate([
+            'tipo_documento'       => 'sometimes|string|max:10',
+            'nacionalidad'         => 'sometimes|nullable|string|max:30',
             'nombres'              => 'sometimes|string|max:80',
             'apellidos'            => 'sometimes|string|max:80',
-            'genero'               => 'sometimes|string|in:M,F',
+            'genero'               => 'sometimes|string|max:20',
             'fecha_nacimiento'     => 'sometimes|nullable|date',
             'lugar_nacimiento'     => 'sometimes|nullable|string|max:80',
             'estado_nacimiento'    => 'sometimes|nullable|string|max:60',
@@ -80,7 +82,8 @@ class EstudianteController extends Controller
             'correo'               => 'sometimes|nullable|email|max:120',
             'condiciones_medicas'  => 'sometimes|nullable|string',
             'medicamentos'         => 'sometimes|nullable|string',
-            'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado,trasladado',
+            'fecha_ingreso'        => 'sometimes|nullable|date',
+            'estado_estudiante'    => 'sometimes|string|in:activo,retirado,graduado',
             'fecha_retiro'         => 'sometimes|nullable|date',
             'motivo_retiro'        => 'sometimes|nullable|string|max:200',
         ]);

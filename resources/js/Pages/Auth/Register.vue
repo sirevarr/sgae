@@ -7,8 +7,8 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
-    name: '',
-    email: '',
+    codigo_usuario: '',
+    cedula_personal: '',
     password: '',
     password_confirmation: '',
 });
@@ -22,42 +22,42 @@ const submit = () => {
 
 <template>
     <GuestLayout>
-        <Head title="Register" />
+        <Head title="Registro de Usuario" />
 
         <form @submit.prevent="submit">
             <div>
-                <InputLabel for="name" value="Name" />
+                <InputLabel for="codigo_usuario" value="Código de Usuario *" />
 
                 <TextInput
-                    id="name"
+                    id="codigo_usuario"
                     type="text"
                     class="mt-1 block w-full"
-                    v-model="form.name"
+                    v-model="form.codigo_usuario"
                     required
                     autofocus
-                    autocomplete="name"
+                    autocomplete="username"
+                    placeholder="Ej: jperez"
                 />
 
-                <InputError class="mt-2" :message="form.errors.name" />
+                <InputError class="mt-2" :message="form.errors.codigo_usuario" />
             </div>
 
             <div class="mt-4">
-                <InputLabel for="email" value="Email" />
+                <InputLabel for="cedula_personal" value="Cédula de Personal (Opcional)" />
 
                 <TextInput
-                    id="email"
-                    type="email"
+                    id="cedula_personal"
+                    type="number"
                     class="mt-1 block w-full"
-                    v-model="form.email"
-                    required
-                    autocomplete="username"
+                    v-model="form.cedula_personal"
+                    placeholder="Ej: 12345678"
                 />
 
-                <InputError class="mt-2" :message="form.errors.email" />
+                <InputError class="mt-2" :message="form.errors.cedula_personal" />
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password" value="Password" />
+                <InputLabel for="password" value="Contraseña *" />
 
                 <TextInput
                     id="password"
@@ -72,7 +72,7 @@ const submit = () => {
             </div>
 
             <div class="mt-4">
-                <InputLabel for="password_confirmation" value="Confirm Password" />
+                <InputLabel for="password_confirmation" value="Confirmar Contraseña *" />
 
                 <TextInput
                     id="password_confirmation"
@@ -91,13 +91,14 @@ const submit = () => {
                     :href="route('login')"
                     class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
                 >
-                    Already registered?
+                    ¿Ya estás registrado?
                 </Link>
 
                 <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Register
+                    Registrarse
                 </PrimaryButton>
             </div>
         </form>
     </GuestLayout>
 </template>
+

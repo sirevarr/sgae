@@ -60,6 +60,12 @@ class Seccion extends Model
         return $this->hasMany(AsignacionDocente::class, 'codigo_seccion', 'codigo_seccion');
     }
 
+    /** Alias para compatibilidad con frontend (serializa como asignaciones_docente) */
+    public function asignacionesDocente()
+    {
+        return $this->asignaciones();
+    }
+
     /** Total de estudiantes activos en la sección */
     public function getTotalEstudiantesAttribute(): int
     {

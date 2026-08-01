@@ -43,7 +43,7 @@ class SeccionController extends Controller
             'id_mencion'          => 'nullable|integer|exists:Mencion,id_mencion',
             'cedula_docente_guia' => 'nullable|integer|exists:Docente,cedula_personal',
             'capacidad_maxima'    => 'required|integer|min:1|max:60',
-            'turno'               => 'required|string|in:mañana,tarde,nocturno',
+            'turno'               => 'required|string|max:30',
             'aula_asignada'       => 'nullable|string|max:40',
         ]);
 
@@ -60,7 +60,7 @@ class SeccionController extends Controller
             'id_mencion'          => 'sometimes|nullable|integer|exists:Mencion,id_mencion',
             'cedula_docente_guia' => 'sometimes|nullable|integer|exists:Docente,cedula_personal',
             'capacidad_maxima'    => 'sometimes|integer|min:1|max:60',
-            'turno'               => 'sometimes|string|in:mañana,tarde,nocturno',
+            'turno'               => 'sometimes|string|max:30',
             'aula_asignada'       => 'sometimes|nullable|string|max:40',
         ]);
         $seccion->update($data);
@@ -69,8 +69,15 @@ class SeccionController extends Controller
 
     public function destroy(string $codigo): JsonResponse
     {
-        Seccion::findOrFail($codigo)->delete();
-        return response()->json(['message' => 'Sección eliminada.']);
+        $seccion = Seccion::findOrFail($codigo);
+        try {
+            $seccion->delete();
+            return response()->json(['message' => 'Sección eliminada.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'error' => 'No se puede eliminar la sección porque tiene registros asociados (matrículas, asignaciones o evaluaciones).'
+            ], 409);
+        }
     }
 
     /** POST /api/secciones/{codigo}/asignaciones — asignar docente a materia en sección */

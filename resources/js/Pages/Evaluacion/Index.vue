@@ -1,8 +1,12 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, usePage } from '@inertiajs/vue3';
 import { ref, reactive, onMounted, computed } from 'vue';
 import axios from 'axios';
+
+const page = usePage();
+const userRole = computed(() => String(page.props.auth?.user?.rol || 'docente').toLowerCase());
+const canManageRecords = computed(() => ['administrador','control_estudios','docente'].includes(userRole.value));
 
 // ── Catálogos ─────────────────────────────────────────────────────────
 const anios    = ref([]);
@@ -27,7 +31,7 @@ const cargado     = ref(false);
 
 // Notas temporales editadas en la grilla (cedula->siglas->nota)
 const notasEdit   = reactive({});
-const esRevision  = reactive({}); // cedula->siglas->bool
+const esRevision  = reactive({});
 
 // ── Modal Materias Pendientes ─────────────────────────────────────────
 const showPendientes    = ref(false);
@@ -59,7 +63,6 @@ async function abrirPendientes(mat) {
             params: { cedula_estudiante: mat.cedula_estudiante }
         });
         pendientesData.value = data.data ?? data;
-        // Cargar materias disponibles
         const r = await axios.get('/api/materias');
         materiasDisp.value = r.data?.data ?? r.data;
     } finally {
@@ -126,11 +129,9 @@ async function cargarGrilla(forceNoMomento = false) {
             codigo_ano_escolar: filtro.codigo_ano_escolar,
             codigo_seccion: filtro.codigo_seccion,
         };
-
         if (!forceNoMomento && filtro.numero_momento) {
             params.numero_momento = filtro.numero_momento;
         }
-
         const { data } = await axios.get('/api/evaluaciones', { params });
         plan.value         = data.plan;
         matriculas.value   = data.matriculas;
@@ -143,12 +144,9 @@ async function cargarGrilla(forceNoMomento = false) {
             filtro.numero_momento = null;
         } else if (!momentoValido) {
             filtro.numero_momento = momentos.value[0].numero_momento;
-            if (!forceNoMomento) {
-                return cargarGrilla(true);
-            }
+            if (!forceNoMomento) return cargarGrilla(true);
         }
 
-        // Inicializar notas editables
         for (const mat of data.matriculas) {
             const ced = mat.cedula_estudiante;
             notasEdit[ced] = {};
@@ -207,9 +205,9 @@ async function guardarTodo() {
 function colorNota(nota) {
     if (nota === '' || nota === null || nota === undefined) return '';
     const n = Number.parseFloat(nota);
-    if (n >= notaMinima.value) return 'text-emerald-700 font-bold';
-    if (n >= notaMinima.value - 3) return 'text-amber-600 font-semibold';
-    return 'text-red-600 font-bold';
+    if (n >= notaMinima.value) return 'text-ok font-semibold';
+    if (n >= notaMinima.value - 3) return 'text-alerta font-semibold';
+    return 'text-rojo font-semibold';
 }
 
 onMounted(cargarCatalogos);
@@ -223,57 +221,53 @@ onMounted(cargarCatalogos);
         <template #header>
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <div>
-                    <h1 class="text-xl font-black text-slate-800">📈 Evaluaciones</h1>
-                    <p class="text-xs text-slate-500 mt-0.5">Ingreso de notas por sección y momento evaluativo</p>
+                    <h1 class="font-serif font-semibold text-[20px] text-tinta leading-tight">Evaluaciones</h1>
+                    <p class="text-[11px] text-piedra mt-0.5">Ingreso de notas por sección y momento evaluativo</p>
                 </div>
-                <button v-if="cargado" @click="guardarTodo" :disabled="saving"
-                    class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl shadow transition disabled:opacity-50">
-                    {{ saving ? 'Guardando…' : '💾 Guardar Todas las Notas' }}
+                <button v-if="cargado && canManageRecords" @click="guardarTodo" :disabled="saving"
+                    class="btn-primary">
+                    {{ saving ? 'Guardando...' : 'Guardar Todas las Notas' }}
                 </button>
+                <div v-else-if="cargado" class="border border-borde bg-crema px-3 py-2 rounded-[4px] text-[12px] text-piedra font-semibold">
+                    Modo docente: solo visualización y exportación.
+                </div>
             </div>
         </template>
 
         <!-- Filtros -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 mb-5">
+        <div class="bg-paper border border-borde rounded-[6px] p-5 mb-5">
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <!-- Año escolar -->
                 <div>
-                    <label for="filtro-anio" class="text-xs font-black uppercase text-slate-500 tracking-wider">Año Escolar</label>
-                    <select id="filtro-anio" v-model="filtro.codigo_ano_escolar" @change="cargarSecciones"
-                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-sky-400">
-                        <option value="">Seleccionar…</option>
+                    <label for="filtro-anio" class="lbl">Año Escolar</label>
+                    <select id="filtro-anio" v-model="filtro.codigo_ano_escolar" @change="cargarSecciones" class="inp mt-1">
+                        <option value="">Seleccionar...</option>
                         <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">{{ a.codigo_ano_escolar }}</option>
                     </select>
                 </div>
-                <!-- Sección -->
                 <div>
-                    <label for="filtro-seccion" class="text-xs font-black uppercase text-slate-500 tracking-wider">Sección</label>
+                    <label for="filtro-seccion" class="lbl">Sección</label>
                     <select id="filtro-seccion" v-model="filtro.codigo_seccion"
-                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-sky-400"
-                        :disabled="!secciones.length">
-                        <option value="">Seleccionar…</option>
+                        class="inp mt-1" :disabled="!secciones.length">
+                        <option value="">Seleccionar...</option>
                         <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
                             {{ s.grado?.nombre }} — {{ s.letra }} ({{ s.turno }})
                         </option>
                     </select>
                 </div>
-                <!-- Momento -->
                 <div>
-                    <label for="filtro-momento" class="text-xs font-black uppercase text-slate-500 tracking-wider">Momento Evaluativo</label>
-                    <select id="filtro-momento" v-model="filtro.numero_momento"
-                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-sky-400">
-                        <option value="" disabled hidden>Seleccionar…</option>
+                    <label for="filtro-momento" class="lbl">Momento Evaluativo</label>
+                    <select id="filtro-momento" v-model="filtro.numero_momento" class="inp mt-1">
+                        <option value="" disabled hidden>Seleccionar...</option>
                         <option v-if="!momentos.length" disabled value="">Sin momentos para este año</option>
                         <option v-for="momento in momentos" :key="momento.numero_momento" :value="momento.numero_momento">
                             {{ momento.numero_momento }}° Momento
                         </option>
                     </select>
                 </div>
-                <!-- Botón cargar -->
                 <div class="flex items-end">
                     <button @click="cargarGrilla" :disabled="!filtro.codigo_seccion || loading"
-                        class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm py-2.5 rounded-xl transition disabled:opacity-40">
-                        {{ loading ? 'Cargando…' : 'Cargar Grilla' }}
+                        class="w-full btn-primary disabled:opacity-40">
+                        {{ loading ? 'Cargando...' : 'Cargar Grilla' }}
                     </button>
                 </div>
             </div>
@@ -281,69 +275,78 @@ onMounted(cargarCatalogos);
 
         <!-- Info de sección -->
         <div v-if="cargado && seccionActual"
-            class="bg-sky-50 border border-sky-200 rounded-xl px-5 py-3 mb-4 flex items-center gap-4 text-sm">
-            <span class="font-black text-sky-700">{{ seccionActual.grado?.nombre }} — {{ seccionActual.letra }}</span>
-            <span class="text-sky-600">{{ seccionActual.mencion?.nombre }}</span>
-            <span class="text-sky-500 text-xs">{{ matriculas.length }} estudiantes · Nota mínima: <b>{{ notaMinima }}</b></span>
+            class="bg-paper border border-borde border-l-[3px] border-l-dorado rounded-[6px] px-5 py-3 mb-4 flex items-center gap-4">
+            <span class="font-semibold text-tinta text-[13px]">{{ seccionActual.grado?.nombre }} — {{ seccionActual.letra }}</span>
+            <span class="text-piedra text-[12px]">{{ seccionActual.mencion?.nombre }}</span>
+            <span class="text-piedra text-[12px]">{{ matriculas.length }} estudiantes · Nota mínima: <strong>{{ notaMinima }}</strong></span>
         </div>
 
         <!-- Grilla de notas -->
-        <div v-if="cargado" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-x-auto">
+        <div v-if="cargado" class="bg-paper border border-borde rounded-[6px] overflow-x-auto">
+            <div v-if="!canManageRecords" class="border-b border-borde bg-crema px-4 py-2.5 text-[12px] font-semibold text-piedra">
+                El docente solo puede consultar las calificaciones y exportar reportes; no puede registrar ni modificar notas.
+            </div>
             <table class="min-w-full text-xs border-collapse">
                 <thead>
                     <tr>
-                        <th class="sticky left-0 bg-slate-800 text-white px-3 py-3 text-left font-black uppercase tracking-wider z-10" style="min-width:180px">Estudiante</th>
+                        <th class="sticky left-0 bg-tinta text-paper px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.04em] z-10" style="min-width:180px">Estudiante</th>
                         <th v-for="pe in plan" :key="pe.siglas_materia"
-                            class="bg-slate-700 text-white px-2 py-3 text-center font-black uppercase tracking-wider whitespace-nowrap"
+                            class="bg-tinta-soft text-paper px-2 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.04em] whitespace-nowrap"
                             style="min-width:90px">
                             <span :title="pe.materia?.nombre">{{ pe.siglas_materia }}</span>
                         </th>
-                        <th class="bg-slate-600 text-white px-3 py-3 text-center font-black uppercase tracking-wider" style="min-width:80px">Promedio</th>
+                        <th class="bg-tinta text-paper px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.04em]" style="min-width:80px">Prom.</th>
                     </tr>
                     <!-- Nombre completo de materia -->
-                    <tr class="bg-slate-100">
-                        <td class="sticky left-0 bg-slate-100 px-3 py-1 text-[10px] text-slate-400 font-semibold z-10"></td>
+                    <tr class="bg-crema">
+                        <td class="sticky left-0 bg-crema px-3 py-1 text-[10px] text-piedra z-10"></td>
                         <td v-for="pe in plan" :key="pe.siglas_materia + '_n'"
-                            class="px-2 py-1 text-[9px] text-slate-400 text-center truncate" :title="pe.materia?.nombre">
+                            class="px-2 py-1 text-[10px] text-piedra text-center truncate" :title="pe.materia?.nombre">
                             {{ pe.materia?.nombre }}
                         </td>
                         <td></td>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-borde">
                     <tr v-for="(mat, idx) in matriculas" :key="mat.cedula_estudiante"
-                        :class="['hover:bg-sky-50 transition', idx % 2 === 0 ? '' : 'bg-slate-50/40']">
+                        class="hover:bg-crema transition-colors">
                         <!-- Nombre del estudiante -->
-                        <td class="sticky left-0 bg-white px-3 py-2 font-semibold text-slate-700 z-10 whitespace-nowrap border-r border-slate-100">
-                            <div class="flex items-center gap-1">
-                                <span class="text-[10px] text-slate-400 font-mono">{{ mat.numero_lista ?? idx+1 }}.</span>
+                        <td class="sticky left-0 bg-paper px-3 py-2 font-semibold text-tinta z-10 whitespace-nowrap border-r border-borde text-[12.5px]">
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[11px] text-piedra font-mono">{{ mat.numero_lista ?? idx+1 }}.</span>
                                 <span class="flex-1">{{ mat.estudiante?.apellidos }}, {{ mat.estudiante?.nombres }}</span>
-                                <button @click="abrirPendientes(mat)"
+                                <button v-if="canManageRecords" @click="abrirPendientes(mat)"
                                     title="Materias pendientes"
-                                    class="text-amber-500 hover:text-amber-700 text-xs hover:bg-amber-50 px-1 py-0.5 rounded transition">⚠</button>
+                                    class="text-[11px] text-alerta hover:text-tinta px-1 py-0.5 rounded hover:bg-crema transition-colors">
+                                    Pend.
+                                </button>
                             </div>
                         </td>
                         <!-- Input de nota por materia -->
                         <td v-for="pe in plan" :key="mat.cedula_estudiante + pe.siglas_materia" class="px-2 py-1 text-center">
                             <input
+                                v-if="canManageRecords"
                                 :id="`nota-${mat.cedula_estudiante}-${pe.siglas_materia}`"
                                 v-model="notasEdit[mat.cedula_estudiante][pe.siglas_materia]"
                                 type="number" min="0" max="20" step="0.1"
-                                :class="['w-16 text-center border rounded-lg py-1 text-xs focus:outline-none focus:ring-1 focus:ring-sky-400 transition',
+                                :class="['w-14 text-center border rounded-[4px] py-1 text-[12px] focus:outline-none focus:border-rojo transition-colors',
                                     colorNota(notasEdit[mat.cedula_estudiante][pe.siglas_materia]),
-                                    notasEdit[mat.cedula_estudiante][pe.siglas_materia] === '' ? 'border-slate-200 bg-slate-50' :
-                                    Number.parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia]) >= notaMinima ? 'border-emerald-300 bg-emerald-50' : 'border-red-300 bg-red-50'
+                                    notasEdit[mat.cedula_estudiante][pe.siglas_materia] === '' ? 'border-borde bg-crema' :
+                                    Number.parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia]) >= notaMinima ? 'border-ok/40 bg-[#E6EEE0]' : 'border-rojo/30 bg-[#F4DEDA]'
                                 ]"
                                 placeholder="—"
                             />
+                            <span v-else class="text-piedra text-[12px]">
+                                {{ notasEdit[mat.cedula_estudiante][pe.siglas_materia] || '—' }}
+                            </span>
                         </td>
                         <!-- Promedio de la fila -->
                         <td class="px-3 py-2 text-center">
-                            <span :class="['font-black text-sm', (() => {
+                            <span :class="['font-semibold text-[12.5px]', (() => {
                                 const vals = plan.map(pe => parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia])).filter(n => !isNaN(n));
-                                if (!vals.length) return 'text-slate-400';
+                                if (!vals.length) return 'text-piedra';
                                 const avg = vals.reduce((a,b) => a+b, 0) / vals.length;
-                                return avg >= notaMinima ? 'text-emerald-700' : 'text-red-600';
+                                return avg >= notaMinima ? 'text-ok' : 'text-rojo';
                             })()]">
                                 {{ (() => {
                                     const vals = plan.map(pe => Number.parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia])).filter(n => !isNaN(n));
@@ -358,107 +361,101 @@ onMounted(cargarCatalogos);
 
         <!-- Estado vacío -->
         <div v-else-if="!loading && !cargado"
-            class="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center text-slate-400">
-            <div class="text-5xl mb-4">📈</div>
-            <p class="font-semibold text-slate-600">Selecciona el año escolar, la sección y el momento evaluativo</p>
-            <p class="text-sm mt-1">Luego haz clic en <strong>Cargar Grilla</strong> para ingresar las notas.</p>
+            class="bg-paper border border-borde rounded-[6px] p-16 text-center text-piedra">
+            <p class="font-semibold text-tinta text-[14px]">Selecciona el año escolar, la sección y el momento evaluativo</p>
+            <p class="text-[12px] mt-1">Luego haz clic en <strong>Cargar Grilla</strong> para ingresar las notas.</p>
         </div>
 
         <!-- MODAL MATERIAS PENDIENTES POR ESTUDIANTE -->
         <Teleport to="body">
-            <div v-if="showPendientes" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-                    <div class="p-5 border-b flex items-center justify-between">
+            <div v-if="showPendientes" class="fixed inset-0 bg-tinta/60 z-50 flex items-center justify-center p-4">
+                <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                    <div class="px-5 py-4 border-b border-borde flex items-center justify-between">
                         <div>
-                            <h2 class="font-black text-slate-800 text-base">⚠️ Materias Pendientes</h2>
-                            <p class="text-xs text-slate-400 mt-0.5">
+                            <h2 class="font-serif font-semibold text-tinta text-[16px]">Materias Pendientes</h2>
+                            <p class="text-[11px] text-piedra mt-0.5">
                                 {{ pendienteEst?.estudiante?.apellidos }}, {{ pendienteEst?.estudiante?.nombres }}
                             </p>
                         </div>
-                        <button @click="showPendientes = false" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+                        <button @click="showPendientes = false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
                     </div>
 
                     <!-- Formulario nueva pendiente -->
-                    <div class="p-5 bg-amber-50 border-b border-amber-100">
-                        <p class="text-xs font-black uppercase text-amber-700 tracking-widest mb-3">Registrar Nueva Pendiente</p>
+                    <div v-if="canManageRecords" class="p-5 border-b border-borde bg-crema">
+                        <p class="text-[11px] font-semibold uppercase text-piedra tracking-[0.06em] mb-3">Registrar Nueva Pendiente</p>
                         <div class="grid grid-cols-2 gap-3">
                             <div class="col-span-2">
-                                <label class="text-xs font-bold text-slate-600 uppercase">Materia *</label>
-                                <select v-model="pendienteForm.siglas_materia"
-                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1">
-                                    <option value="">Seleccionar…</option>
+                                <label class="lbl">Materia *</label>
+                                <select v-model="pendienteForm.siglas_materia" class="inp mt-1">
+                                    <option value="">Seleccionar...</option>
                                     <option v-for="m in materiasDisp" :key="m.siglas" :value="m.siglas">
                                         {{ m.nombre }} ({{ m.siglas }})
                                     </option>
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Año Escolar Origen</label>
-                                <input v-model="pendienteForm.codigo_ano_escolar_origen" type="text"
-                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1" />
+                                <label class="lbl">Año Escolar Origen</label>
+                                <input v-model="pendienteForm.codigo_ano_escolar_origen" type="text" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Estado</label>
-                                <select v-model="pendienteForm.estado"
-                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1">
+                                <label class="lbl">Estado</label>
+                                <select v-model="pendienteForm.estado" class="inp mt-1">
                                     <option value="pendiente">Pendiente</option>
                                     <option value="aprobada">Aprobada</option>
-                                    <option value="no_presentada">No presentada</option>
+                                    <option value="no_aprobada">No aprobada</option>
                                 </select>
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Nota Final</label>
-                                <input v-model="pendienteForm.nota_final" type="number" min="0" max="20" step="0.1"
-                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1" />
+                                <label class="lbl">Nota Final</label>
+                                <input v-model="pendienteForm.nota_final" type="number" min="0" max="20" step="0.1" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Fecha Resolución</label>
-                                <input v-model="pendienteForm.fecha_resolucion" type="date"
-                                    class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 mt-1" />
+                                <label class="lbl">Fecha Resolución</label>
+                                <input v-model="pendienteForm.fecha_resolucion" type="date" class="inp mt-1" />
                             </div>
                         </div>
                         <div class="flex justify-end mt-3">
                             <button @click="guardarPendiente" :disabled="!pendienteForm.siglas_materia || savingPend"
-                                class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition">
-                                {{ savingPend ? 'Guardando…' : '＋ Registrar Pendiente' }}
+                                class="btn-primary">
+                                {{ savingPend ? 'Guardando...' : 'Registrar Pendiente' }}
                             </button>
                         </div>
                     </div>
 
                     <!-- Lista de pendientes -->
                     <div class="p-5">
-                        <div v-if="loadingPend" class="py-8 text-center text-slate-400">Cargando…</div>
-                        <div v-else-if="!pendientesData.length" class="py-8 text-center text-slate-400 text-sm">
+                        <div v-if="loadingPend" class="py-8 text-center text-piedra text-[13px]">Cargando...</div>
+                        <div v-else-if="!pendientesData.length" class="py-8 text-center text-piedra text-[13px]">
                             Sin materias pendientes registradas.
                         </div>
-                        <table v-else class="w-full text-sm">
-                            <thead class="bg-amber-50 border-b border-amber-100">
-                                <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Materia</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Año Origen</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Estado</th>
-                                    <th class="px-3 py-2 text-center text-xs font-black text-amber-700 uppercase">Nota</th>
-                                    <th class="px-3 py-2 text-xs font-black text-amber-700 uppercase">Acción</th>
+                        <table v-else class="w-full">
+                            <thead>
+                                <tr class="border-b border-borde">
+                                    <th class="th">Materia</th>
+                                    <th class="th">Año Origen</th>
+                                    <th class="th">Estado</th>
+                                    <th class="th text-center">Nota</th>
+                                    <th class="th">Acción</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-50">
-                                <tr v-for="p in pendientesData" :key="p.id_materia_pendiente" class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 font-semibold">{{ p.materia?.nombre ?? p.siglas_materia }}</td>
-                                    <td class="px-3 py-2 text-xs">{{ p.codigo_ano_escolar_origen }}</td>
-                                    <td class="px-3 py-2">
-                                        <span :class="['px-2 py-0.5 rounded-full text-[10px] font-black uppercase',
-                                            p.estado === 'pendiente'     ? 'bg-red-100 text-red-700' :
-                                            p.estado === 'aprobada'      ? 'bg-emerald-100 text-emerald-700' :
-                                            'bg-slate-100 text-slate-500']">
+                            <tbody class="divide-y divide-borde">
+                                <tr v-for="p in pendientesData" :key="p.id_materia_pendiente" class="hover:bg-crema">
+                                    <td class="td font-semibold text-[12.5px]">{{ p.materia?.nombre ?? p.siglas_materia }}</td>
+                                    <td class="td text-[12px] text-piedra">{{ p.codigo_ano_escolar_origen }}</td>
+                                    <td class="td">
+                                        <span :class="['badge',
+                                            p.estado === 'pendiente'     ? 'badge-alerta' :
+                                            p.estado === 'aprobada'      ? 'badge-ok' :
+                                            'badge-neutral']">
                                             {{ p.estado }}
                                         </span>
                                     </td>
-                                    <td class="px-3 py-2 text-center">{{ p.nota_final ?? '—' }}</td>
-                                    <td class="px-3 py-2">
+                                    <td class="td text-center text-[12.5px]">{{ p.nota_final ?? '—' }}</td>
+                                    <td class="td">
                                         <button v-if="p.estado === 'pendiente'"
                                             @click="actualizarEstadoPendiente(p, 'aprobada')"
-                                            class="text-xs px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition">
-                                            ✓ Aprobar
+                                            class="text-[12px] px-2 py-1 bg-[#E6EEE0] text-ok border border-ok/30 rounded-[4px] hover:bg-[#d4e8d0] transition-colors">
+                                            Aprobar
                                         </button>
                                     </td>
                                 </tr>
@@ -470,3 +467,15 @@ onMounted(cargarCatalogos);
         </Teleport>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.lbl  { @apply block text-[12px] font-semibold text-tinta-soft uppercase tracking-[0.04em]; }
+.inp  { @apply w-full border border-borde rounded-[4px] px-3 py-[10px] text-[13px] bg-crema text-tinta focus:outline-none focus:border-rojo focus:bg-paper transition-colors; }
+.th   { @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-piedra; }
+.td   { @apply px-4 py-3; }
+.badge         { @apply inline-flex items-center rounded-[20px] px-[9px] py-[3px] text-[10.5px] font-semibold; }
+.badge-ok      { @apply bg-[#E6EEE0] text-ok; }
+.badge-alerta  { @apply bg-dorado-soft text-[#7A5A0E]; }
+.badge-neutral { @apply bg-crema text-piedra; }
+.btn-primary   { @apply bg-rojo hover:bg-rojo-dark text-paper text-[13px] font-semibold px-4 py-2 rounded-[4px] transition-colors disabled:opacity-50; }
+</style>

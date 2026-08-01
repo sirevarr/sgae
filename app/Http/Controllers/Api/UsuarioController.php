@@ -102,12 +102,7 @@ class UsuarioController extends Controller
         return response()->json(['message' => 'Usuario desactivado.']);
     }
 
-    private function tableUnavailableResponse(string $tableName): JsonResponse
-    {
-        return response()->json([
-            'message' => "La tabla de {$tableName} no está disponible en la base de datos actual.",
-        ], 500);
-    }
+
 
     public function resetPassword(Request $request, int $id): JsonResponse
     {

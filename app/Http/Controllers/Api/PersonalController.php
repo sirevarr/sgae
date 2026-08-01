@@ -62,12 +62,12 @@ class PersonalController extends Controller
             'telefono'         => 'nullable|string|max:20',
             'correo'           => 'nullable|email|max:120',
             'fecha_nacimiento' => 'nullable|date',
-            'genero'           => 'nullable|string|in:M,F',
+            'genero'           => 'nullable|string|max:20',
             'fecha_ingreso'    => 'nullable|date',
             'estado'           => 'nullable|string|max:20',
             'observaciones'    => 'nullable|string',
             'especialidad'     => 'nullable|string|max:80',
-            'turno'            => 'nullable|string|in:M,T,N',
+            'turno'            => 'nullable|string|max:30',
         ]);
 
         if (! Personal::tableExists()) {
@@ -105,13 +105,13 @@ class PersonalController extends Controller
             'telefono'         => 'sometimes|nullable|string|max:20',
             'correo'           => 'sometimes|nullable|email|max:120',
             'fecha_nacimiento' => 'sometimes|nullable|date',
-            'genero'           => 'sometimes|nullable|string|in:M,F',
+            'genero'           => 'sometimes|nullable|string|max:20',
             'fecha_ingreso'    => 'sometimes|nullable|date',
             'estado'           => 'sometimes|string|max:20',
             'observaciones'    => 'sometimes|nullable|string',
             // Docente
             'especialidad'     => 'sometimes|nullable|string|max:80',
-            'turno'            => 'sometimes|nullable|string|in:M,T,N',
+            'turno'            => 'sometimes|nullable|string|max:30',
         ]);
 
         $personal->update($data);
@@ -134,9 +134,18 @@ class PersonalController extends Controller
         }
 
         $personal = Personal::findOrFail($cedula);
-        $personal->delete();
-
-        return response()->json(['message' => 'Personal eliminado.']);
+        try {
+            if ($personal->docente) {
+                $personal->docente->delete();
+            }
+            $personal->delete();
+            return response()->json(['message' => 'Personal eliminado correctamente.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'message' => 'No se puede eliminar la persona porque tiene registros asignados (usuario del sistema, docente guía o secciones asociadas).',
+                'error' => 'No se puede eliminar la persona porque tiene registros asociados.'
+            ], 409);
+        }
     }
 
     private function buildQuery(Request $request)
@@ -169,10 +178,5 @@ class PersonalController extends Controller
         ];
     }
 
-    private function tableUnavailableResponse(string $tableName): JsonResponse
-    {
-        return response()->json([
-            'message' => "La tabla de {$tableName} no está disponible en la base de datos actual.",
-        ], 500);
-    }
+
 }

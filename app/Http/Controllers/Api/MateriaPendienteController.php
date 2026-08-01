@@ -45,7 +45,7 @@ class MateriaPendienteController extends Controller
             'id_mencion'               => 'nullable|integer|exists:Mencion,id_mencion',
             'codigo_grado'             => 'required|string|exists:Grado,codigo_grado',
             'codigo_ano_escolar_origen'=> 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
-            'estado'                   => 'required|string|in:pendiente,aprobada,no_presentada',
+            'estado'                   => 'required|string|in:pendiente,aprobada,no_aprobada',
             'fecha_resolucion'         => 'nullable|date',
             'nota_final'               => 'nullable|numeric|min:0|max:20',
         ]);
@@ -65,7 +65,7 @@ class MateriaPendienteController extends Controller
         $mp = MateriaPendiente::findOrFail($id);
 
         $data = $request->validate([
-            'estado'           => 'sometimes|string|in:pendiente,aprobada,no_presentada',
+            'estado'           => 'sometimes|string|in:pendiente,aprobada,no_aprobada',
             'fecha_resolucion' => 'sometimes|nullable|date',
             'nota_final'       => 'sometimes|nullable|numeric|min:0|max:20',
         ]);

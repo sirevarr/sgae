@@ -1,13 +1,17 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head } from '@inertiajs/vue3';
-import { ref, onMounted, reactive } from 'vue';
+import { Head, usePage } from '@inertiajs/vue3';
+import { ref, onMounted, reactive, computed } from 'vue';
 import axios from 'axios';
 
 const estudiantes = ref([]);
 const loading     = ref(false);
 const buscar      = ref('');
 const pagination  = ref({});
+
+const page = usePage();
+const userRole = computed(() => String(page.props.auth?.user?.rol ?? 'docente').trim().toLowerCase());
+const canManageRecords = computed(() => !['docente'].includes(userRole.value));
 
 const modal = ref(false);
 const editando = ref(false);
@@ -20,11 +24,25 @@ const form = reactive({
 });
 const errors = ref({});
 const saving = ref(false);
+const successMsg = ref('');
+
+async function eliminar(est) {
+    if (!canManageRecords.value) return alert('No tienes permiso para eliminar estudiantes.');
+    if (!confirm(`Eliminar al estudiante "${est.nombres} ${est.apellidos}" (${est.cedula_estudiante})?`)) return;
+    try {
+        await axios.delete(`/api/estudiantes/${est.cedula_estudiante}`);
+        successMsg.value = 'Estudiante eliminado correctamente.';
+        setTimeout(() => successMsg.value = '', 3000);
+        cargar();
+    } catch (e) {
+        alert(e.response?.data?.error ?? e.response?.data?.message ?? e.message);
+    }
+}
 
 // ── Modal Ficha Antropométrica / Pendientes ──────────────────────────
 const showDetalle = ref(false);
 const detalleEst  = ref(null);
-const detalleTab  = ref('ficha'); // 'ficha' | 'pendientes'
+const detalleTab  = ref('ficha');
 const fichas      = ref([]);
 const pendientes  = ref([]);
 const loadingDetalle = ref(false);
@@ -49,9 +67,9 @@ async function abrirDetalle(est) {
     loadingDetalle.value = true;
     try {
         const { data } = await axios.get(`/api/estudiantes/${est.cedula_estudiante}`);
+        detalleEst.value = { ...detalleEst.value, ...data };
         fichas.value    = data.fichas_antropometricas ?? [];
         pendientes.value = data.materias_pendientes ?? [];
-        // pre-llenar ficha con la del año vigente si existe
         const vigente = aniosEsc.value.find(a => a.vigente);
         if (vigente) fichaForm.codigo_ano_escolar = vigente.codigo_ano_escolar;
         const fichaActual = fichas.value.find(f => f.codigo_ano_escolar === fichaForm.codigo_ano_escolar);
@@ -72,14 +90,15 @@ async function abrirDetalle(est) {
 }
 
 async function guardarFicha() {
+    if (!canManageRecords.value) { alert('No tienes permiso para modificar la ficha.'); return; }
     savingFicha.value = true;
     try {
         await axios.post(`/api/estudiantes/${detalleEst.value.cedula_estudiante}/ficha`, fichaForm);
         const { data } = await axios.get(`/api/estudiantes/${detalleEst.value.cedula_estudiante}`);
         fichas.value = data.fichas_antropometricas ?? [];
-        alert('✅ Ficha actualizada.');
+        alert('Ficha actualizada correctamente.');
     } catch (e) {
-        alert('⚠️ Error: ' + (e.response?.data?.message ?? e.message));
+        alert('Error: ' + (e.response?.data?.message ?? e.message));
     } finally {
         savingFicha.value = false;
     }
@@ -115,6 +134,7 @@ async function cargar(page = 1) {
 }
 
 function abrirNuevo() {
+    if (!canManageRecords.value) return;
     editando.value = false;
     Object.assign(form, {
         cedula_estudiante: '', tipo_documento: 'V', nacionalidad: 'Venezolana',
@@ -128,10 +148,17 @@ function abrirNuevo() {
 }
 
 function abrirEditar(est) {
+    if (!canManageRecords.value) return;
     editando.value = true;
     Object.assign(form, { ...est });
     errors.value = {};
     modal.value  = true;
+}
+
+function editarDesdeDetalle() {
+    if (!canManageRecords.value || !detalleEst.value) return;
+    showDetalle.value = false;
+    abrirEditar(detalleEst.value);
 }
 
 async function guardar() {
@@ -166,76 +193,73 @@ onMounted(() => { cargar(); cargarAnios(); });
     <Head title="Estudiantes — SGAE" />
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center gap-6 w-full">
                 <div>
-                    <h1 class="text-xl font-black text-slate-800">🧑‍🎓 Estudiantes</h1>
-                    <p class="text-xs text-slate-500 mt-0.5">Registro y gestión del censo estudiantil</p>
+                    <h1 class="font-serif font-semibold text-[20px] text-tinta leading-tight">Estudiantes</h1>
+                    <p class="text-[11px] text-piedra mt-0.5">Registro y gestión del censo estudiantil</p>
                 </div>
-                <button @click="abrirNuevo"
-                    class="flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold px-4 py-2 rounded-xl shadow transition">
-                    <span>＋</span> Nuevo Estudiante
-                </button>
+                <button v-if="canManageRecords" @click="abrirNuevo" class="btn-primary">Nuevo estudiante</button>
             </div>
         </template>
+
+        <!-- Mensaje de éxito -->
+        <div v-if="successMsg" class="mb-4 bg-[#E6EEE0] border border-ok/30 text-ok text-[12px] font-semibold px-4 py-2.5 rounded-[4px] flex justify-between items-center">
+            <span>{{ successMsg }}</span>
+            <button @click="successMsg = ''" class="text-ok/70 hover:text-ok ml-4">&times;</button>
+        </div>
 
         <!-- Buscador -->
         <div class="mb-4 flex gap-3">
             <input v-model="buscar" @input="onBuscar" type="text"
-                placeholder="Buscar por nombre, apellido o cédula…"
-                class="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white shadow-sm" />
+                placeholder="Buscar por nombre, apellido o cédula..."
+                class="inp flex-1" />
         </div>
 
         <!-- Tabla -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div v-if="loading" class="p-12 text-center text-slate-400 text-sm">Cargando estudiantes…</div>
-            <table v-else class="w-full text-sm">
-                <thead class="bg-slate-800 text-white">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider">Cédula</th>
-                        <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider">Apellidos y Nombres</th>
-                        <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider">Género</th>
-                        <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider">Sección Actual</th>
-                        <th class="px-4 py-3 text-left text-xs font-black uppercase tracking-wider">Estado</th>
-                        <th class="px-4 py-3 text-xs font-black uppercase tracking-wider">Acciones</th>
+        <div class="bg-paper border border-borde rounded-[6px] overflow-hidden">
+            <div v-if="loading" class="p-10 text-center text-piedra text-[13px]">Cargando...</div>
+            <table v-else class="w-full">
+                <thead>
+                    <tr class="border-b border-borde">
+                        <th class="th">Cédula</th>
+                        <th class="th">Apellidos y Nombres</th>
+                        <th class="th">Género</th>
+                        <th class="th">Sección Actual</th>
+                        <th class="th">Estado</th>
+                        <th class="th text-center">Acciones</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-borde">
                     <tr v-if="!estudiantes.length">
-                        <td colspan="6" class="text-center py-10 text-slate-400 text-sm">No se encontraron estudiantes.</td>
+                        <td colspan="6" class="text-center py-10 text-piedra text-[13px]">No se encontraron estudiantes.</td>
                     </tr>
-                    <tr v-for="est in estudiantes" :key="est.cedula_estudiante"
-                        class="hover:bg-slate-50 transition">
-                        <td class="px-4 py-3 font-mono text-xs text-slate-600">
+                    <tr v-for="est in estudiantes" :key="est.cedula_estudiante" class="hover:bg-crema transition-colors">
+                        <td class="td font-mono text-[12px] text-piedra">
                             {{ est.tipo_documento }}-{{ est.cedula_estudiante }}
                         </td>
-                        <td class="px-4 py-3 font-semibold text-slate-800">
+                        <td class="td font-semibold text-tinta text-[12.5px]">
                             {{ est.apellidos }}, {{ est.nombres }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600">
-                            {{ est.genero === 'M' ? '♂ Masc.' : '♀ Fem.' }}
+                        <td class="td text-[12.5px] text-piedra">
+                            {{ est.genero === 'M' ? 'Masc.' : 'Fem.' }}
                         </td>
-                        <td class="px-4 py-3 text-slate-600 text-xs">
+                        <td class="td text-[12px] text-piedra">
                             {{ est.matricula_actual?.seccion?.grado?.nombre ?? '—' }}
                             {{ est.matricula_actual?.seccion?.letra ? ' ' + est.matricula_actual.seccion.letra : '' }}
                         </td>
-                        <td class="px-4 py-3">
+                        <td class="td">
                             <span :class="[
-                                'px-2 py-1 rounded-full text-[10px] font-black uppercase',
-                                est.estado_estudiante === 'activo' ? 'bg-emerald-100 text-emerald-700' :
-                                est.estado_estudiante === 'retirado' ? 'bg-red-100 text-red-700' :
-                                'bg-slate-100 text-slate-500'
+                                'badge',
+                                est.estado_estudiante === 'activo'    ? 'badge-ok' :
+                                est.estado_estudiante === 'retirado'  ? 'badge-alerta' :
+                                'badge-neutral'
                             ]">{{ est.estado_estudiante }}</span>
                         </td>
-                         <td class="px-4 py-3 text-center">
-                            <div class="flex gap-1 justify-center">
-                                <button @click="abrirEditar(est)"
-                                    class="text-sky-600 hover:text-sky-800 font-semibold text-xs px-3 py-1 rounded-lg hover:bg-sky-50 transition">
-                                    Editar
-                                </button>
-                                <button @click="abrirDetalle(est)"
-                                    class="text-violet-600 hover:text-violet-800 font-semibold text-xs px-3 py-1 rounded-lg hover:bg-violet-50 transition">
-                                    Ficha
-                                </button>
+                        <td class="td text-center">
+                            <div class="flex gap-2 justify-center">
+                                <button v-if="canManageRecords" @click="abrirEditar(est)" class="btn-table-action">Editar</button>
+                                <button @click="abrirDetalle(est)" class="btn-table-action">Ver</button>
+                                <button v-if="canManageRecords" @click="eliminar(est)" class="btn-table-action text-rojo hover:text-rojo-dark">Eliminar</button>
                             </div>
                         </td>
                     </tr>
@@ -243,35 +267,38 @@ onMounted(() => { cargar(); cargarAnios(); });
             </table>
 
             <!-- Paginación -->
-            <div v-if="pagination.last_page > 1" class="flex justify-between items-center px-4 py-3 bg-slate-50 border-t border-slate-100">
-                <span class="text-xs text-slate-500">
+            <div v-if="pagination.last_page > 1" class="flex justify-between items-center px-5 py-3 border-t border-borde bg-crema">
+                <span class="text-[11px] text-piedra">
                     Mostrando {{ pagination.from }}–{{ pagination.to }} de {{ pagination.total }}
                 </span>
                 <div class="flex gap-1">
                     <button v-for="p in pagination.last_page" :key="p"
                         @click="cargar(p)"
-                        :class="['w-8 h-8 rounded-lg text-xs font-bold transition', p === pagination.current_page ? 'bg-sky-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100']">
+                        :class="['w-7 h-7 rounded-[4px] text-[11px] font-semibold transition-colors',
+                            p === pagination.current_page
+                                ? 'bg-rojo text-paper'
+                                : 'bg-paper text-piedra hover:bg-crema border border-borde']">
                         {{ p }}
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- ── MODAL ──────────────────────────────────────────────────── -->
+        <!-- MODAL CRUD -->
         <Teleport to="body">
-            <div v-if="modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <div class="p-6 border-b border-slate-100 flex items-center justify-between">
-                        <h2 class="font-black text-slate-800 text-lg">
+            <div v-if="modal && canManageRecords" class="fixed inset-0 bg-tinta/60 z-50 flex items-center justify-center p-4">
+                <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                    <div class="px-6 py-4 border-b border-borde flex items-center justify-between">
+                        <h2 class="font-serif font-semibold text-tinta text-[17px]">
                             {{ editando ? 'Editar Estudiante' : 'Nuevo Estudiante' }}
                         </h2>
-                        <button @click="modal = false" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+                        <button @click="modal = false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
                     </div>
                     <div class="p-6 grid grid-cols-2 gap-4">
                         <!-- Cédula (solo en nuevo) -->
                         <div v-if="!editando" class="col-span-2 grid grid-cols-3 gap-2">
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Tipo Doc.</label>
+                                <label class="lbl">Tipo Doc.</label>
                                 <select v-model="form.tipo_documento" class="inp">
                                     <option value="V">V</option>
                                     <option value="E">E</option>
@@ -279,77 +306,82 @@ onMounted(() => { cargar(); cargarAnios(); });
                                 <p v-if="errors.tipo_documento" class="err">{{ errors.tipo_documento[0] }}</p>
                             </div>
                             <div class="col-span-2">
-                                <label class="text-xs font-bold text-slate-600 uppercase">Número de Cédula *</label>
+                                <label class="lbl">Número de cédula *</label>
                                 <input v-model="form.cedula_estudiante" type="text" class="inp" placeholder="12345678" />
                                 <p v-if="errors.cedula_estudiante" class="err">{{ errors.cedula_estudiante[0] }}</p>
                             </div>
                         </div>
                         <!-- Nombres -->
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Nombres *</label>
+                            <label class="lbl">Nombres *</label>
                             <input v-model="form.nombres" type="text" class="inp" />
                             <p v-if="errors.nombres" class="err">{{ errors.nombres[0] }}</p>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Apellidos *</label>
+                            <label class="lbl">Apellidos *</label>
                             <input v-model="form.apellidos" type="text" class="inp" />
                             <p v-if="errors.apellidos" class="err">{{ errors.apellidos[0] }}</p>
                         </div>
                         <!-- Género -->
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Género *</label>
+                            <label class="lbl">Género *</label>
                             <select v-model="form.genero" class="inp">
                                 <option value="M">Masculino</option>
                                 <option value="F">Femenino</option>
                             </select>
+                            <p v-if="errors.genero" class="err">{{ errors.genero[0] }}</p>
                         </div>
                         <!-- Fecha nacimiento -->
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Fecha de Nacimiento</label>
+                            <label class="lbl">Fecha de nacimiento</label>
                             <input v-model="form.fecha_nacimiento" type="date" class="inp" />
+                            <p v-if="errors.fecha_nacimiento" class="err">{{ errors.fecha_nacimiento[0] }}</p>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Lugar de Nacimiento</label>
+                            <label class="lbl">Lugar de nacimiento</label>
                             <input v-model="form.lugar_nacimiento" type="text" class="inp" />
+                            <p v-if="errors.lugar_nacimiento" class="err">{{ errors.lugar_nacimiento[0] }}</p>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Municipio Nacimiento</label>
+                            <label class="lbl">Municipio nacimiento</label>
                             <input v-model="form.municipio_nacimiento" type="text" class="inp" />
+                            <p v-if="errors.municipio_nacimiento" class="err">{{ errors.municipio_nacimiento[0] }}</p>
                         </div>
                         <div class="col-span-2">
-                            <label class="text-xs font-bold text-slate-600 uppercase">Dirección</label>
+                            <label class="lbl">Dirección</label>
                             <input v-model="form.direccion" type="text" class="inp" />
+                            <p v-if="errors.direccion" class="err">{{ errors.direccion[0] }}</p>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Teléfono</label>
+                            <label class="lbl">Teléfono</label>
                             <input v-model="form.telefono" type="text" class="inp" />
+                            <p v-if="errors.telefono" class="err">{{ errors.telefono[0] }}</p>
                         </div>
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Correo</label>
+                            <label class="lbl">Correo</label>
                             <input v-model="form.correo" type="email" class="inp" />
+                            <p v-if="errors.correo" class="err">{{ errors.correo[0] }}</p>
                         </div>
                         <div class="col-span-2">
-                            <label class="text-xs font-bold text-slate-600 uppercase">Condiciones Médicas</label>
+                            <label class="lbl">Condiciones médicas</label>
                             <textarea v-model="form.condiciones_medicas" rows="2" class="inp"></textarea>
+                            <p v-if="errors.condiciones_medicas" class="err">{{ errors.condiciones_medicas[0] }}</p>
                         </div>
                         <!-- Estado (solo en edición) -->
                         <div v-if="editando">
-                            <label class="text-xs font-bold text-slate-600 uppercase">Estado</label>
+                            <label class="lbl">Estado</label>
                             <select v-model="form.estado_estudiante" class="inp">
                                 <option value="activo">Activo</option>
                                 <option value="retirado">Retirado</option>
                                 <option value="graduado">Graduado</option>
-                                <option value="trasladado">Trasladado</option>
                             </select>
+                            <p v-if="errors.estado_estudiante" class="err">{{ errors.estado_estudiante[0] }}</p>
                         </div>
                     </div>
-                    <div class="p-6 border-t border-slate-100 flex justify-end gap-3">
-                        <button @click="modal = false" class="px-5 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition">
-                            Cancelar
-                        </button>
-                        <button @click="guardar" :disabled="saving"
-                            class="px-6 py-2 bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold rounded-xl shadow transition disabled:opacity-50">
-                            {{ saving ? 'Guardando…' : 'Guardar' }}
+                    <div class="px-6 py-4 border-t border-borde flex justify-end gap-3">
+                        <button @click="modal = false" class="btn-secondary">Cancelar</button>
+                        <button @click="guardar" :disabled="saving" class="btn-primary">
+                            {{ saving ? 'Guardando...' : 'Guardar' }}
                         </button>
                     </div>
                 </div>
@@ -358,36 +390,81 @@ onMounted(() => { cargar(); cargarAnios(); });
 
         <!-- MODAL FICHA ANTROPOMÉTRICA + PENDIENTES -->
         <Teleport to="body">
-            <div v-if="showDetalle" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-                    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+            <div v-if="showDetalle" class="fixed inset-0 bg-tinta/60 z-50 flex items-center justify-center p-4">
+                <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+                    <div class="px-5 py-4 border-b border-borde flex items-center justify-between">
                         <div>
-                            <h2 class="font-black text-slate-800 text-base">
+                            <h2 class="font-serif font-semibold text-tinta text-[16px]">
                                 {{ detalleEst?.apellidos }}, {{ detalleEst?.nombres }}
                             </h2>
-                            <p class="text-xs text-slate-400">{{ detalleEst?.tipo_documento }}-{{ detalleEst?.cedula_estudiante }}</p>
+                            <p class="text-[11px] text-piedra mt-0.5">{{ detalleEst?.tipo_documento }}-{{ detalleEst?.cedula_estudiante }}</p>
                         </div>
-                        <button @click="showDetalle = false" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+                        <button @click="showDetalle = false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
+                    </div>
+
+                    <div class="px-5 py-4 border-b border-borde grid grid-cols-2 gap-4 text-[13px] text-piedra">
+                        <div>
+                            <span class="lbl">Nombres</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.nombres }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Apellidos</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.apellidos }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Correo</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.correo ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Teléfono</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.telefono ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Dirección</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.direccion ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Género</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.genero === 'M' ? 'Masculino' : detalleEst?.genero === 'F' ? 'Femenino' : '—' }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Fecha nacimiento</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.fecha_nacimiento ?? '—' }}</p>
+                        </div>
+                        <div>
+                            <span class="lbl">Lugar nacimiento</span>
+                            <p class="mt-1 font-semibold text-tinta">{{ detalleEst?.lugar_nacimiento ?? '—' }}</p>
+                        </div>
+                    </div>
+
+                    <div class="px-5 py-4 border-b border-borde flex justify-end gap-3">
+                        <button v-if="canManageRecords" @click="editarDesdeDetalle" class="btn-primary">Editar como administrador</button>
                     </div>
 
                     <!-- TABS -->
-                    <div class="flex border-b border-slate-100 px-5 pt-3 gap-4">
+                    <div class="flex border-b border-borde px-5 gap-5">
                         <button @click="detalleTab = 'ficha'"
-                            :class="['pb-2 text-sm font-bold border-b-2 transition', detalleTab === 'ficha' ? 'border-sky-600 text-sky-600' : 'border-transparent text-slate-400 hover:text-slate-600']">
-                            📍 Ficha Antropométrica
+                            :class="['py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors',
+                                detalleTab === 'ficha'
+                                    ? 'border-dorado text-tinta'
+                                    : 'border-transparent text-piedra hover:text-tinta']">
+                            Ficha Antropométrica
                         </button>
                         <button @click="detalleTab = 'pendientes'"
-                            :class="['pb-2 text-sm font-bold border-b-2 transition', detalleTab === 'pendientes' ? 'border-amber-500 text-amber-600' : 'border-transparent text-slate-400 hover:text-slate-600']">
-                            ⚠️ Materias Pendientes
+                            :class="['py-3 text-[13px] font-semibold border-b-2 -mb-px transition-colors',
+                                detalleTab === 'pendientes'
+                                    ? 'border-dorado text-tinta'
+                                    : 'border-transparent text-piedra hover:text-tinta']">
+                            Materias Pendientes
                         </button>
                     </div>
 
-                    <div v-if="loadingDetalle" class="p-10 text-center text-slate-400">Cargando...</div>
+                    <div v-if="loadingDetalle" class="p-10 text-center text-piedra text-[13px]">Cargando...</div>
 
                     <!-- TAB: FICHA ANTROPOMÉTRICA -->
                     <div v-else-if="detalleTab === 'ficha'" class="p-5 space-y-4">
                         <div>
-                            <label class="text-xs font-bold text-slate-600 uppercase">Año Escolar</label>
+                            <label class="lbl">Año Escolar</label>
                             <select v-model="fichaForm.codigo_ano_escolar" @change="onFichaAnioChange" class="inp mt-1">
                                 <option value="">Seleccionar...</option>
                                 <option v-for="a in aniosEsc" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
@@ -397,37 +474,37 @@ onMounted(() => { cargar(); cargarAnios(); });
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Estatura (m)</label>
-                                <input v-model="fichaForm.estatura" type="number" step="0.01" min="0.3" max="2.5" class="inp mt-1" />
+                                <label class="lbl">Estatura (m)</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.estatura" type="number" step="0.01" min="0.3" max="2.5" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Peso (kg)</label>
-                                <input v-model="fichaForm.peso" type="number" step="0.1" min="1" max="250" class="inp mt-1" />
+                                <label class="lbl">Peso (kg)</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.peso" type="number" step="0.1" min="1" max="250" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Talla Camisa</label>
-                                <input v-model="fichaForm.talla_camisa" type="text" class="inp mt-1" placeholder="XS, S, M, L..." />
+                                <label class="lbl">Talla Camisa</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.talla_camisa" type="text" class="inp mt-1" placeholder="XS, S, M, L..." />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Talla Pantalón</label>
-                                <input v-model="fichaForm.talla_pantalon" type="text" class="inp mt-1" />
+                                <label class="lbl">Talla Pantalón</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.talla_pantalon" type="text" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Talla Zapatos</label>
-                                <input v-model="fichaForm.talla_zapatos" type="text" class="inp mt-1" />
+                                <label class="lbl">Talla Zapatos</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.talla_zapatos" type="text" class="inp mt-1" />
                             </div>
                             <div>
-                                <label class="text-xs font-bold text-slate-600 uppercase">Fecha Medición</label>
-                                <input v-model="fichaForm.fecha_medicion" type="date" class="inp mt-1" />
+                                <label class="lbl">Fecha Medición</label>
+                                <input :disabled="!canManageRecords" v-model="fichaForm.fecha_medicion" type="date" class="inp mt-1" />
                             </div>
                         </div>
-                        <div class="border-t border-slate-100 pt-3 flex gap-2">
-                            <div class="text-xs text-slate-400 flex-1">
-                                <strong>Fichas registradas:</strong> {{ fichas.length }}
-                                <span v-if="fichas.length"> (Años: {{ fichas.map(f => f.codigo_ano_escolar).join(', ') }})</span>
-                            </div>
-                            <button @click="guardarFicha" :disabled="!fichaForm.codigo_ano_escolar || savingFicha"
-                                class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition">
+                        <div class="border-t border-borde pt-3 flex items-center gap-3">
+                            <p class="text-[11px] text-piedra flex-1">
+                                Fichas registradas: {{ fichas.length }}
+                                <span v-if="fichas.length"> — {{ fichas.map(f => f.codigo_ano_escolar).join(', ') }}</span>
+                            </p>
+                            <button v-if="canManageRecords" @click="guardarFicha" :disabled="!fichaForm.codigo_ano_escolar || savingFicha"
+                                class="btn-primary text-[12px]">
                                 {{ savingFicha ? 'Guardando...' : 'Guardar Ficha' }}
                             </button>
                         </div>
@@ -435,37 +512,37 @@ onMounted(() => { cargar(); cargarAnios(); });
 
                     <!-- TAB: MATERIAS PENDIENTES -->
                     <div v-else-if="detalleTab === 'pendientes'" class="p-5">
-                        <div v-if="!pendientes.length" class="p-8 text-center text-slate-400 text-sm">
+                        <div v-if="!pendientes.length" class="py-8 text-center text-piedra text-[13px]">
                             Sin materias pendientes registradas.
                         </div>
-                        <table v-else class="w-full text-sm">
-                            <thead class="bg-amber-50 border-b border-amber-100">
-                                <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Materia</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Año Origen</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Estado</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Nota Final</th>
-                                    <th class="px-3 py-2 text-left text-xs font-black text-amber-700 uppercase">Resolución</th>
+                        <table v-else class="w-full">
+                            <thead>
+                                <tr class="border-b border-borde">
+                                    <th class="th">Materia</th>
+                                    <th class="th">Año Origen</th>
+                                    <th class="th">Estado</th>
+                                    <th class="th">Nota Final</th>
+                                    <th class="th">Resolución</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-50">
-                                <tr v-for="p in pendientes" :key="p.id_materia_pendiente" class="hover:bg-slate-50">
-                                    <td class="px-3 py-2 font-semibold">{{ p.materia?.nombre ?? p.siglas_materia }}</td>
-                                    <td class="px-3 py-2 text-xs">{{ p.codigo_ano_escolar_origen }}</td>
-                                    <td class="px-3 py-2">
-                                        <span :class="['px-2 py-0.5 rounded-full text-[10px] font-black uppercase',
-                                            p.estado === 'pendiente' ? 'bg-red-100 text-red-700' :
-                                            p.estado === 'aprobada'  ? 'bg-emerald-100 text-emerald-700' :
-                                            'bg-slate-100 text-slate-500'
+                            <tbody class="divide-y divide-borde">
+                                <tr v-for="p in pendientes" :key="p.id_materia_pendiente" class="hover:bg-crema">
+                                    <td class="td font-semibold text-[12.5px]">{{ p.materia?.nombre ?? p.siglas_materia }}</td>
+                                    <td class="td text-[12px] text-piedra">{{ p.codigo_ano_escolar_origen }}</td>
+                                    <td class="td">
+                                        <span :class="[
+                                            'badge',
+                                            p.estado === 'aprobada'  ? 'badge-ok' :
+                                            p.estado === 'pendiente' ? 'badge-alerta' :
+                                            'badge-neutral'
                                         ]">{{ p.estado }}</span>
                                     </td>
-                                    <td class="px-3 py-2 text-center">{{ p.nota_final ?? '—' }}</td>
-                                    <td class="px-3 py-2 text-xs">{{ p.fecha_resolucion ?? '—' }}</td>
+                                    <td class="td text-[12.5px] text-center">{{ p.nota_final ?? '—' }}</td>
+                                    <td class="td text-[12px] text-piedra">{{ p.fecha_resolucion ?? '—' }}</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
-
                 </div>
             </div>
         </Teleport>
@@ -474,7 +551,18 @@ onMounted(() => { cargar(); cargarAnios(); });
 
 <style scoped>
 .inp {
-    @apply w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 mt-1 bg-white;
+    @apply w-full border border-borde rounded-[4px] px-3 py-[10px] text-[13px] bg-crema text-tinta
+           focus:outline-none focus:border-rojo focus:bg-paper transition-colors mt-1;
 }
-.err { @apply text-red-500 text-xs mt-1; }
+.lbl   { @apply block text-[12px] font-semibold text-tinta-soft uppercase tracking-[0.04em]; }
+.err   { @apply text-rojo text-[11px] mt-1; }
+.th    { @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-piedra; }
+.td    { @apply px-4 py-3; }
+.badge { @apply inline-flex items-center rounded-[20px] px-[9px] py-[3px] text-[10.5px] font-semibold; }
+.badge-ok      { @apply bg-[#E6EEE0] text-ok; }
+.badge-alerta  { @apply bg-dorado-soft text-[#7A5A0E]; }
+.badge-neutral { @apply bg-crema text-piedra; }
+.btn-primary   { @apply bg-rojo hover:bg-rojo-dark text-paper text-[13px] font-semibold px-4 py-2 rounded-[4px] transition-colors; }
+.btn-secondary { @apply border border-borde text-tinta-soft text-[13px] font-semibold px-4 py-2 rounded-[4px] hover:bg-crema transition-colors; }
+.btn-table-action { @apply text-[12px] font-semibold text-piedra hover:text-tinta transition-colors px-2 py-1 rounded-[3px] hover:bg-crema; }
 </style>

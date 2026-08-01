@@ -25,84 +25,101 @@ function cambiarTab(t) { tab.value = t; cargar(); }
 
 onMounted(cargar);
 </script>
+
 <template>
     <Head title="Auditoría — SGAE" />
     <AuthenticatedLayout>
         <template #header>
-            <h1 class="text-xl font-black text-slate-800">🔒 Auditoría del Sistema</h1>
-            <p class="text-xs text-slate-500 mt-0.5">Registro de cambios y accesos al sistema</p>
+            <div>
+                <h1 class="font-serif font-semibold text-[20px] text-tinta leading-tight">Auditoría del Sistema</h1>
+                <p class="text-[11px] text-piedra mt-0.5">Registro de cambios y accesos al sistema</p>
+            </div>
         </template>
+
         <!-- Tabs -->
-        <div class="flex gap-2 mb-5 border-b border-slate-200">
+        <div class="flex gap-6 mb-5 border-b border-borde">
             <button v-for="t in ['auditoria', 'logins']" :key="t" @click="cambiarTab(t)"
-                :class="['px-5 py-2.5 text-sm font-bold transition border-b-2 -mb-px',
-                    tab === t ? 'border-sky-600 text-sky-700' : 'border-transparent text-slate-500 hover:text-slate-700']">
-                {{ t === 'auditoria' ? '📋 Cambios en BD' : '🔐 Registro de Logins' }}
+                :class="['pb-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px',
+                    tab === t ? 'border-dorado text-tinta' : 'border-transparent text-piedra hover:text-tinta']">
+                {{ t === 'auditoria' ? 'Cambios en Base de Datos' : 'Registro de Accesos (Logins)' }}
             </button>
         </div>
+
         <!-- Filtros auditoría -->
-        <div v-if="tab === 'auditoria'" class="flex flex-wrap gap-3 mb-5">
-            <input v-model="filtro.tabla_afectada" @input="cargar" placeholder="Tabla…" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white" />
-            <select v-model="filtro.operacion" @change="cargar" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white">
+        <div v-if="tab === 'auditoria'" class="flex flex-wrap gap-3 mb-4">
+            <input v-model="filtro.tabla_afectada" @input="cargar" placeholder="Tabla..." class="inp-filter" />
+            <select v-model="filtro.operacion" @change="cargar" class="inp-filter">
                 <option value="">Todas las operaciones</option>
                 <option value="INSERT">INSERT</option>
                 <option value="UPDATE">UPDATE</option>
                 <option value="DELETE">DELETE</option>
             </select>
-            <input v-model="filtro.fecha_desde" @change="cargar" type="date" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white" />
-            <input v-model="filtro.fecha_hasta" @change="cargar" type="date" class="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white" />
+            <input v-model="filtro.fecha_desde" @change="cargar" type="date" class="inp-filter" />
+            <input v-model="filtro.fecha_hasta" @change="cargar" type="date" class="inp-filter" />
         </div>
+
         <!-- Tabla auditoría -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div v-if="loading" class="p-12 text-center text-slate-400">Cargando…</div>
+        <div class="bg-paper border border-borde rounded-[6px] overflow-x-auto">
+            <div v-if="loading" class="p-10 text-center text-piedra text-[13px]">Cargando...</div>
+
             <!-- Registros BD -->
-            <table v-else-if="tab === 'auditoria'" class="w-full text-xs">
-                <thead class="bg-slate-800 text-white"><tr>
-                    <th class="px-3 py-3 text-left font-black uppercase">Fecha/Hora</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Usuario</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Operación</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Tabla</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">ID Registro</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">IP</th>
-                </tr></thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-if="!registros.length"><td colspan="6" class="text-center py-10 text-slate-400">Sin registros de auditoría.</td></tr>
-                    <tr v-for="r in registros" :key="r.id_auditoria" class="hover:bg-slate-50">
-                        <td class="px-3 py-2.5 font-mono text-slate-600">{{ r.fecha_hora }}</td>
-                        <td class="px-3 py-2.5 font-mono text-slate-700">{{ r.usuario?.codigo_usuario ?? r.id_usuario }}</td>
-                        <td class="px-3 py-2.5">
-                            <span :class="['px-2 py-0.5 rounded-full font-black uppercase text-[9px]',
-                                r.operacion === 'INSERT' ? 'bg-emerald-100 text-emerald-700' :
-                                r.operacion === 'UPDATE' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700']">
+            <table v-else-if="tab === 'auditoria'" class="w-full">
+                <thead>
+                    <tr class="border-b border-borde">
+                        <th class="th">Fecha/Hora</th>
+                        <th class="th">Usuario</th>
+                        <th class="th">Operación</th>
+                        <th class="th">Tabla</th>
+                        <th class="th">ID Registro</th>
+                        <th class="th">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-borde">
+                    <tr v-if="!registros.length">
+                        <td colspan="6" class="text-center py-10 text-piedra text-[13px]">Sin registros de auditoría.</td>
+                    </tr>
+                    <tr v-for="r in registros" :key="r.id_auditoria" class="hover:bg-crema transition-colors">
+                        <td class="td font-mono text-[12px] text-piedra">{{ r.fecha_hora }}</td>
+                        <td class="td font-mono text-[12.5px] font-semibold text-tinta">{{ r.usuario?.codigo_usuario ?? r.id_usuario }}</td>
+                        <td class="td">
+                            <span :class="['badge',
+                                r.operacion === 'INSERT' ? 'badge-ok' :
+                                r.operacion === 'UPDATE' ? 'badge-alerta' :
+                                'badge-[#F4DEDA] text-rojo-dark']">
                                 {{ r.operacion }}
                             </span>
                         </td>
-                        <td class="px-3 py-2.5 font-mono text-slate-600">{{ r.tabla_afectada }}</td>
-                        <td class="px-3 py-2.5 font-mono text-xs text-slate-400">{{ r.id_registro }}</td>
-                        <td class="px-3 py-2.5 text-slate-400">{{ r.ip_usuario ?? '—' }}</td>
+                        <td class="td font-mono text-[12px] text-piedra">{{ r.tabla_afectada }}</td>
+                        <td class="td font-mono text-[12px] text-piedra-soft">{{ r.id_registro }}</td>
+                        <td class="td font-mono text-[12px] text-piedra-soft">{{ r.ip_usuario ?? '—' }}</td>
                     </tr>
                 </tbody>
             </table>
+
             <!-- Logins -->
-            <table v-else class="w-full text-xs">
-                <thead class="bg-slate-800 text-white"><tr>
-                    <th class="px-3 py-3 text-left font-black uppercase">Fecha</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Hora</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Usuario</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">IP</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Tipo</th>
-                    <th class="px-3 py-3 text-left font-black uppercase">Resultado</th>
-                </tr></thead>
-                <tbody class="divide-y divide-slate-100">
-                    <tr v-if="!logins.length"><td colspan="6" class="text-center py-10 text-slate-400">Sin registros de login.</td></tr>
-                    <tr v-for="l in logins" :key="l.id_login" class="hover:bg-slate-50">
-                        <td class="px-3 py-2.5 font-mono">{{ l.fecha }}</td>
-                        <td class="px-3 py-2.5 font-mono">{{ l.hora }}</td>
-                        <td class="px-3 py-2.5 font-mono text-slate-700">{{ l.usuario?.codigo_usuario ?? l.id_usuario }}</td>
-                        <td class="px-3 py-2.5 text-slate-400">{{ l.ip_acceso ?? '—' }}</td>
-                        <td class="px-3 py-2.5">{{ l.tipo_acceso === 'E' ? 'Entrada' : 'Salida' }}</td>
-                        <td class="px-3 py-2.5">
-                            <span :class="['px-2 py-0.5 rounded-full font-black uppercase text-[9px]', l.exitoso ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700']">
+            <table v-else class="w-full">
+                <thead>
+                    <tr class="border-b border-borde">
+                        <th class="th">Fecha</th>
+                        <th class="th">Hora</th>
+                        <th class="th">Usuario</th>
+                        <th class="th">IP</th>
+                        <th class="th">Tipo</th>
+                        <th class="th">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-borde">
+                    <tr v-if="!logins.length">
+                        <td colspan="6" class="text-center py-10 text-piedra text-[13px]">Sin registros de login.</td>
+                    </tr>
+                    <tr v-for="l in logins" :key="l.id_login" class="hover:bg-crema transition-colors">
+                        <td class="td font-mono text-[12px] text-piedra">{{ l.fecha }}</td>
+                        <td class="td font-mono text-[12px] text-piedra">{{ l.hora }}</td>
+                        <td class="td font-mono text-[12.5px] font-semibold text-tinta">{{ l.usuario?.codigo_usuario ?? l.id_usuario }}</td>
+                        <td class="td font-mono text-[12px] text-piedra-soft">{{ l.ip_acceso ?? '—' }}</td>
+                        <td class="td text-[12px] text-piedra">{{ l.tipo_acceso === 'E' ? 'Entrada' : 'Salida' }}</td>
+                        <td class="td">
+                            <span :class="['badge', l.exitoso ? 'badge-ok' : 'bg-[#F4DEDA] text-rojo-dark']">
                                 {{ l.exitoso ? 'Exitoso' : 'Fallido' }}
                             </span>
                         </td>
@@ -112,3 +129,12 @@ onMounted(cargar);
         </div>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.inp-filter    { @apply border border-borde rounded-[4px] px-3 py-[9px] text-[13px] bg-paper text-tinta focus:outline-none focus:border-rojo transition-colors; }
+.th            { @apply px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-piedra; }
+.td            { @apply px-4 py-3; }
+.badge         { @apply inline-flex items-center rounded-[20px] px-[9px] py-[3px] text-[10.5px] font-semibold; }
+.badge-ok      { @apply bg-[#E6EEE0] text-ok; }
+.badge-alerta  { @apply bg-dorado-soft text-[#7A5A0E]; }
+</style>

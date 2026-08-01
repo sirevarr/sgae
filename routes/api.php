@@ -28,8 +28,7 @@ use App\Http\Controllers\Api\{
 |--------------------------------------------------------------------------
 | API Routes — SGAE (prueba2)
 |--------------------------------------------------------------------------
-| Estas rutas aceptan autenticación de sesión web para que los formularios
-| de Inertia/Vue puedan guardar datos sin necesidad de tokens de Sanctum.
+| Estas rutas aceptan autenticación de sesión web y validación de roles.
 */
 
 $personalRoute = '/personal/{cedula}';
@@ -116,135 +115,158 @@ Route::get('/debug-sqlsrv', function () {
 
 Route::middleware('auth')->group(function () use ($personalRoute, $usuarioRoute, $materiaRoute, $planEstudiosRoute, $seccionRoute, $momentoRoute) {
 
-    // ── DASHBOARD ──────────────────────────────────────────────────────
+    // ── DASHBOARD & LISTAS DE CONSULTA ─────────────────────────────────
     Route::get('/dashboard-stats', [DashboardController::class, 'stats']);
+    Route::get('/personal-lista',   [InstitucionController::class, 'personalLista']);
 
-    // ── INSTITUCIÓN ────────────────────────────────────────────────────
-    Route::get('/institucion',            [InstitucionController::class, 'show']);
-    Route::post('/institucion',           [InstitucionController::class, 'store']);
-    Route::put('/institucion/{codigo}',   [InstitucionController::class, 'update']);
-    Route::get('/personal-lista',         [InstitucionController::class, 'personalLista']);
+    // ── ROL: ADMINISTRADOR ──────────────────────────────────────────────
+    Route::middleware(['role:administrador'])->group(function () use ($usuarioRoute) {
+        Route::get('/usuarios',                       [UsuarioController::class, 'index']);
+        Route::get($usuarioRoute,                     [UsuarioController::class, 'show']);
+        Route::post('/usuarios',                      [UsuarioController::class, 'store']);
+        Route::put($usuarioRoute,                     [UsuarioController::class, 'update']);
+        Route::delete($usuarioRoute,                  [UsuarioController::class, 'destroy']);
+        Route::post($usuarioRoute . '/reset-password', [UsuarioController::class, 'resetPassword']);
 
-    // ── PERSONAL ───────────────────────────────────────────────────────
-    Route::get('/personal',              [PersonalController::class, 'index']);
-    Route::get($personalRoute,     [PersonalController::class, 'show']);
-    Route::post('/personal',             [PersonalController::class, 'store']);
-    Route::put($personalRoute,     [PersonalController::class, 'update']);
-    Route::delete($personalRoute,  [PersonalController::class, 'destroy']);
+        Route::get('/auditoria',                      [AuditoriaController::class, 'index']);
+        Route::get('/auditoria/logins',               [AuditoriaController::class, 'logins']);
+    });
 
-    // ── USUARIOS ───────────────────────────────────────────────────────
-    Route::get('/usuarios',                       [UsuarioController::class, 'index']);
-    Route::get($usuarioRoute,                  [UsuarioController::class, 'show']);
-    Route::post('/usuarios',                      [UsuarioController::class, 'store']);
-    Route::put($usuarioRoute,                  [UsuarioController::class, 'update']);
-    Route::delete($usuarioRoute,               [UsuarioController::class, 'destroy']);
-    Route::post($usuarioRoute . '/reset-password',  [UsuarioController::class, 'resetPassword']);
+    // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────
+    Route::middleware(['role:administrador,control_estudios'])->group(function () use ($personalRoute, $materiaRoute, $planEstudiosRoute) {
+        Route::post('/institucion',                   [InstitucionController::class, 'store']);
+        Route::put('/institucion/{codigo}',           [InstitucionController::class, 'update']);
+        Route::delete('/institucion/{codigo}',        [InstitucionController::class, 'destroy']);
 
-    // ── AÑOS ESCOLARES ─────────────────────────────────────────────────
-    Route::get('/anios-escolares/vigente',    [AnioEscolarController::class, 'vigente']);
-    Route::get('/anios-escolares',            [AnioEscolarController::class, 'index']);
-    Route::get('/anios-escolares/{codigo}',   [AnioEscolarController::class, 'show']);
-    Route::post('/anios-escolares',           [AnioEscolarController::class, 'store']);
-    Route::put('/anios-escolares/{codigo}',   [AnioEscolarController::class, 'update']);
+        Route::post('/personal',                      [PersonalController::class, 'store']);
+        Route::put($personalRoute,                    [PersonalController::class, 'update']);
+        Route::delete($personalRoute,                 [PersonalController::class, 'destroy']);
 
-    // ── GRADOS ─────────────────────────────────────────────────────────
-    Route::get('/grados',             [GradoController::class, 'index']);
-    Route::post('/grados',            [GradoController::class, 'store']);
-    Route::put('/grados/{codigo}',    [GradoController::class, 'update']);
-    Route::delete('/grados/{codigo}', [GradoController::class, 'destroy']);
+        Route::post('/anios-escolares',               [AnioEscolarController::class, 'store']);
+        Route::put('/anios-escolares/{codigo}',       [AnioEscolarController::class, 'update']);
+        Route::delete('/anios-escolares/{codigo}',    [AnioEscolarController::class, 'destroy']);
 
-    // ── MENCIONES ──────────────────────────────────────────────────────
-    Route::get('/menciones',          [MencionController::class, 'index']);
-    Route::post('/menciones',         [MencionController::class, 'store']);
-    Route::put('/menciones/{id}',     [MencionController::class, 'update']);
-    Route::delete('/menciones/{id}',  [MencionController::class, 'destroy']);
+        Route::post('/grados',                        [GradoController::class, 'store']);
+        Route::put('/grados/{codigo}',                [GradoController::class, 'update']);
+        Route::delete('/grados/{codigo}',             [GradoController::class, 'destroy']);
 
-    // ── MATERIAS ───────────────────────────────────────────────────────
-    Route::get('/materias',              [MateriaController::class, 'index']);
-    Route::get($materiaRoute,     [MateriaController::class, 'show']);
-    Route::post('/materias',             [MateriaController::class, 'store']);
-    Route::put($materiaRoute,     [MateriaController::class, 'update']);
-    Route::delete($materiaRoute,  [MateriaController::class, 'destroy']);
+        Route::post('/menciones',                     [MencionController::class, 'store']);
+        Route::put('/menciones/{id}',                 [MencionController::class, 'update']);
+        Route::delete('/menciones/{id}',              [MencionController::class, 'destroy']);
 
-    // ── PLAN DE ESTUDIOS ───────────────────────────────────────────────
-    Route::get($planEstudiosRoute,     [PlanEstudiosController::class, 'index']);
-    Route::post($planEstudiosRoute,    [PlanEstudiosController::class, 'store']);
-    Route::put($planEstudiosRoute,     [PlanEstudiosController::class, 'update']);
-    Route::delete($planEstudiosRoute,  [PlanEstudiosController::class, 'destroy']);
+        Route::post('/materias',                      [MateriaController::class, 'store']);
+        Route::put($materiaRoute,                     [MateriaController::class, 'update']);
+        Route::delete($materiaRoute,                  [MateriaController::class, 'destroy']);
 
-    // ── SECCIONES ──────────────────────────────────────────────────────
-    Route::get('/secciones',                             [SeccionController::class, 'index']);
-    Route::get($seccionRoute,                    [SeccionController::class, 'show']);
-    Route::post('/secciones',                            [SeccionController::class, 'store']);
-    Route::put($seccionRoute,                    [SeccionController::class, 'update']);
-    Route::delete($seccionRoute,                 [SeccionController::class, 'destroy']);
-    Route::post($seccionRoute . '/asignaciones',      [SeccionController::class, 'asignarDocente']);
+        Route::post($planEstudiosRoute,               [PlanEstudiosController::class, 'store']);
+        Route::put($planEstudiosRoute,                [PlanEstudiosController::class, 'update']);
+        Route::delete($planEstudiosRoute,             [PlanEstudiosController::class, 'destroy']);
+    });
 
-    // ── ESTUDIANTES ────────────────────────────────────────────────────
-    Route::get('/estudiantes',                             [EstudianteController::class, 'index']);
-    Route::get('/estudiantes/{cedula}',                    [EstudianteController::class, 'show']);
-    Route::post('/estudiantes',                            [EstudianteController::class, 'store']);
-    Route::put('/estudiantes/{cedula}',                    [EstudianteController::class, 'update']);
-    Route::post('/estudiantes/{cedula}/ficha',             [EstudianteController::class, 'fichaAntropometrica']);
+    // ── ROL: TODOS LOS ROLES (ADMIN, CONTROL ESTUDIOS, DOCENTE) ─────────
+    Route::middleware(['role:administrador,control_estudios,docente'])->group(function () use ($personalRoute, $materiaRoute, $planEstudiosRoute, $seccionRoute, $momentoRoute) {
+        Route::get('/institucion',                    [InstitucionController::class, 'show']);
 
-    // ── REPRESENTANTES ─────────────────────────────────────────────────
-    Route::get('/representantes',             [RepresentanteController::class, 'index']);
-    Route::get('/representantes/{cedula}',    [RepresentanteController::class, 'show']);
-    Route::post('/representantes',            [RepresentanteController::class, 'store']);
-    Route::put('/representantes/{cedula}',    [RepresentanteController::class, 'update']);
+        Route::get('/personal',                       [PersonalController::class, 'index']);
+        Route::get($personalRoute,                    [PersonalController::class, 'show']);
 
-    // ── MATRÍCULAS ─────────────────────────────────────────────────────
-    Route::get('/matriculas',        [MatriculaController::class, 'index']);
-    Route::get('/matriculas/{id}',   [MatriculaController::class, 'show']);
-    Route::post('/matriculas',       [MatriculaController::class, 'store']);
-    Route::put('/matriculas/{id}',   [MatriculaController::class, 'update']);
+        Route::get('/anios-escolares/vigente',        [AnioEscolarController::class, 'vigente']);
+        Route::get('/anios-escolares',                [AnioEscolarController::class, 'index']);
+        Route::get('/anios-escolares/{codigo}',       [AnioEscolarController::class, 'show']);
 
-    // ── MOMENTOS EVALUATIVOS ───────────────────────────────────────────
-    Route::get($momentoRoute,     [MomentoEvaluativoController::class, 'index']);
-    Route::post($momentoRoute,    [MomentoEvaluativoController::class, 'store']);
-    Route::put($momentoRoute,     [MomentoEvaluativoController::class, 'update']);
+        Route::get('/grados',                         [GradoController::class, 'index']);
 
-    // ── EVALUACIONES ───────────────────────────────────────────────────
-    Route::get('/evaluaciones',                [EvaluacionController::class, 'index']);
-    Route::post('/evaluaciones/guardar',       [EvaluacionController::class, 'guardar']);
-    Route::post('/evaluaciones/guardar-lote',  [EvaluacionController::class, 'guardarLote']);
-    Route::get('/evaluaciones/resumen',        [EvaluacionController::class, 'resumenSeccion']);
+        Route::get('/menciones',                      [MencionController::class, 'index']);
 
-    // ── DOCUMENTOS / PDF ───────────────────────────────────────────────
-    Route::get('/documentos',                                               [DocumentoController::class, 'index']);
-    Route::get('/documentos/boletin/{cedula}/{anio}',                      [DocumentoController::class, 'boletin']);
-    Route::get('/documentos/constancia-estudio/{cedula}/{anio}',           [DocumentoController::class, 'constanciaEstudio']);
-    Route::get('/documentos/constancia-conducta/{cedula}/{anio}',          [DocumentoController::class, 'constanciaConducta']);
-    Route::get('/documentos/constancia-prosecucion/{cedula}/{anio}',       [DocumentoController::class, 'constanciaProsecucion']);
-    Route::get('/documentos/constancia-asistencia/{cedula}/{anio}',        [DocumentoController::class, 'constanciaAsistencia']);
-    Route::get('/documentos/lista-seccion/{seccion}/{anio}',               [DocumentoController::class, 'listaSeccion']);
-    Route::get('/documentos/resumen-seccion/{seccion}/{anio}',             [DocumentoController::class, 'resumenSeccion']);
-    Route::delete('/documentos/{id}', [DocumentoController::class, 'destroy']);
+        Route::get('/materias',                       [MateriaController::class, 'index']);
+        Route::get($materiaRoute,                     [MateriaController::class, 'show']);
 
-    // DELETE helpers for newly added destroy endpoints
-    Route::delete('/anios-escolares/{codigo}', [AnioEscolarController::class, 'destroy']);
-    Route::delete('/institucion/{codigo}', [InstitucionController::class, 'destroy']);
-    Route::delete('/estudiantes/{cedula}', [EstudianteController::class, 'destroy']);
-    Route::delete('/representantes/{cedula}', [RepresentanteController::class, 'destroy']);
-    Route::delete('/matriculas/{id}', [MatriculaController::class, 'destroy']);
-    Route::delete($momentoRoute, [MomentoEvaluativoController::class, 'destroy']);
-    Route::delete('/evaluaciones', [EvaluacionController::class, 'destroy']);
+        Route::get($planEstudiosRoute,                [PlanEstudiosController::class, 'index']);
 
-    // ── INSCRIPCIONES ─────────────────────────────────────────────────
-    Route::get('/inscripciones', [InscripcionController::class, 'index']);
-    Route::post('/inscripciones', [InscripcionController::class, 'store']);
-    Route::get('/inscripciones/{id}', [InscripcionController::class, 'show']);
-    Route::put('/inscripciones/{id}', [InscripcionController::class, 'update']);
-    Route::delete('/inscripciones/{id}', [InscripcionController::class, 'destroy']);
+        // Secciones
+        Route::get('/secciones',                      [SeccionController::class, 'index']);
+        Route::get($seccionRoute,                     [SeccionController::class, 'show']);
 
-    // ── MATERIAS PENDIENTES ──────────────────────────────
-    Route::get('/materias-pendientes',       [MateriaPendienteController::class, 'index']);
-    Route::get('/materias-pendientes/{id}',  [MateriaPendienteController::class, 'show']);
-    Route::post('/materias-pendientes',      [MateriaPendienteController::class, 'store']);
-    Route::put('/materias-pendientes/{id}',  [MateriaPendienteController::class, 'update']);
-    Route::delete('/materias-pendientes/{id}', [MateriaPendienteController::class, 'destroy']);
+        Route::middleware(['role:administrador,control_estudios'])->group(function () use ($seccionRoute) {
+            Route::post('/secciones',                     [SeccionController::class, 'store']);
+            Route::put($seccionRoute,                     [SeccionController::class, 'update']);
+            Route::delete($seccionRoute,                  [SeccionController::class, 'destroy']);
+            Route::post($seccionRoute . '/asignaciones',  [SeccionController::class, 'asignarDocente']);
+        });
 
-    // ── AUDITORÍA ──────────────────────────────────────────────────────
-    Route::get('/auditoria',        [AuditoriaController::class, 'index']);
-    Route::get('/auditoria/logins', [AuditoriaController::class, 'logins']);
-});
+        // Estudiantes
+        Route::get('/estudiantes',                    [EstudianteController::class, 'index']);
+        Route::get('/estudiantes/{cedula}',           [EstudianteController::class, 'show']);
+        Route::middleware(['role:administrador,control_estudios'])->group(function () {
+            Route::post('/estudiantes',                   [EstudianteController::class, 'store']);
+            Route::put('/estudiantes/{cedula}',           [EstudianteController::class, 'update']);
+            Route::delete('/estudiantes/{cedula}',        [EstudianteController::class, 'destroy']);
+            Route::post('/estudiantes/{cedula}/ficha',    [EstudianteController::class, 'fichaAntropometrica']);
+        });
+
+        // Representantes
+        Route::get('/representantes',                 [RepresentanteController::class, 'index']);
+        Route::get('/representantes/{cedula}',        [RepresentanteController::class, 'show']);
+        Route::middleware(['role:administrador,control_estudios'])->group(function () {
+            Route::post('/representantes',                [RepresentanteController::class, 'store']);
+            Route::put('/representantes/{cedula}',        [RepresentanteController::class, 'update']);
+            Route::delete('/representantes/{cedula}',     [RepresentanteController::class, 'destroy']);
+        });
+
+        // Matrículas
+        Route::get('/matriculas',                     [MatriculaController::class, 'index']);
+        Route::get('/matriculas/{id}',                [MatriculaController::class, 'show']);
+
+        Route::middleware(['role:administrador,control_estudios'])->group(function () {
+            Route::post('/matriculas',                [MatriculaController::class, 'store']);
+            Route::put('/matriculas/{id}',            [MatriculaController::class, 'update']);
+            Route::delete('/matriculas/{id}',         [MatriculaController::class, 'destroy']);
+        });
+
+        // Momentos
+        Route::get($momentoRoute,                     [MomentoEvaluativoController::class, 'index']);
+
+        Route::middleware(['role:administrador,control_estudios'])->group(function () use ($momentoRoute) {
+            Route::post($momentoRoute,                [MomentoEvaluativoController::class, 'store']);
+            Route::put($momentoRoute,                 [MomentoEvaluativoController::class, 'update']);
+            Route::delete($momentoRoute,              [MomentoEvaluativoController::class, 'destroy']);
+        });
+
+        // Evaluaciones
+        Route::get('/evaluaciones',                   [EvaluacionController::class, 'index']);
+        Route::get('/evaluaciones/resumen',           [EvaluacionController::class, 'resumenSeccion']);
+        Route::middleware(['role:administrador,control_estudios,docente'])->group(function () {
+            Route::post('/evaluaciones/guardar',          [EvaluacionController::class, 'guardar']);
+            Route::post('/evaluaciones/guardar-lote',     [EvaluacionController::class, 'guardarLote']);
+        });
+        // DELETE remains restricted to admin/control_estudios
+        Route::middleware(['role:administrador,control_estudios'])->group(function () {
+            Route::delete('/evaluaciones',                [EvaluacionController::class, 'destroy']);
+        });
+
+        // Documentos / PDF
+        Route::get('/documentos',                                      [DocumentoController::class, 'index']);
+        Route::get('/documentos/boletin/{cedula}/{anio}',             [DocumentoController::class, 'boletin']);
+        Route::get('/documentos/constancia-estudio/{cedula}/{anio}',  [DocumentoController::class, 'constanciaEstudio']);
+        Route::get('/documentos/constancia-conducta/{cedula}/{anio}', [DocumentoController::class, 'constanciaConducta']);
+        Route::get('/documentos/constancia-prosecucion/{cedula}/{anio}', [DocumentoController::class, 'constanciaProsecucion']);
+        Route::get('/documentos/constancia-asistencia/{cedula}/{anio}', [DocumentoController::class, 'constanciaAsistencia']);
+        Route::get('/documentos/lista-seccion/{seccion}/{anio}',      [DocumentoController::class, 'listaSeccion']);
+        Route::get('/documentos/resumen-seccion/{seccion}/{anio}',    [DocumentoController::class, 'resumenSeccion']);
+        Route::delete('/documentos/{id}',                              [DocumentoController::class, 'destroy']);
+
+        // Inscripciones
+        Route::get('/inscripciones',                  [InscripcionController::class, 'index']);
+        Route::post('/inscripciones',                 [InscripcionController::class, 'store']);
+        Route::get('/inscripciones/{id}',             [InscripcionController::class, 'show']);
+        Route::put('/inscripciones/{id}',             [InscripcionController::class, 'update']);
+        Route::delete('/inscripciones/{id}',          [InscripcionController::class, 'destroy']);
+
+        // Materias Pendientes
+        Route::get('/materias-pendientes',            [MateriaPendienteController::class, 'index']);
+        Route::get('/materias-pendientes/{id}',       [MateriaPendienteController::class, 'show']);
+        Route::post('/materias-pendientes',           [MateriaPendienteController::class, 'store']);
+        Route::put('/materias-pendientes/{id}',       [MateriaPendienteController::class, 'update']);
+        Route::delete('/materias-pendientes/{id}',    [MateriaPendienteController::class, 'destroy']);
+    });
+    });

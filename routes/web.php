@@ -19,9 +19,8 @@ use App\Models\Seccion;
 |--------------------------------------------------------------------------
 */
 
-// Página de bienvenida → responder con una vista simple para las pruebas
 Route::get('/', function () {
-    return response('OK', 200);
+    return redirect()->route('login');
 });
 
 Route::get('/debug-pdo', function () {
@@ -47,64 +46,49 @@ Route::post('/register', [\App\Http\Controllers\Auth\RegisteredUserController::c
 $profileRoute = '/profile';
 
 // ─────────────────────────────────────────────────────────────────────
-//  RUTAS PROTEGIDAS POR AUTENTICACIÓN
+//  RUTAS PROTEGIDAS POR AUTENTICACIÓN Y ROLES
 // ─────────────────────────────────────────────────────────────────────
 Route::middleware(['auth'])->group(function () use ($profileRoute) {
 
-    // ── DASHBOARD ──────────────────────────────────────────────────────
+    // ── DASHBOARD (Accesible para todos los usuarios autenticados) ─────
     Route::get('/dashboard', function () {
-        $anioVigente = AnioEscolar::vigente();
-
-        $estudiantesCount   = Matricula::activa()->count();
-        $docentesCount      = Personal::whereHas('docente')->count();
-        $seccionesCount     = $anioVigente
-            ? Seccion::where('codigo_ano_escolar', $anioVigente->codigo_ano_escolar)->count()
-            : 0;
-        $notaMinima         = ParametroSistema::notaMinima();
-
-        $evaluaciones = $anioVigente
-            ? Evaluacion::where('codigo_ano_escolar', $anioVigente->codigo_ano_escolar)
-                ->whereNotNull('nota')->get()
-            : collect();
-
-        $promedioGlobal      = $evaluaciones->count() ? round($evaluaciones->avg('nota'), 2) : 0;
-        $aprobados           = $evaluaciones->where('nota', '>=', $notaMinima)->count();
-        $porcentajeAprobados = $evaluaciones->count()
-            ? round(($aprobados / $evaluaciones->count()) * 100, 1)
-            : 0;
-
-        return Inertia::render('Dashboard', [
-            'stats' => [
-                'estudiantesCount'   => $estudiantesCount,
-                'docentesCount'      => $docentesCount,
-                'seccionesCount'     => $seccionesCount,
-                'promedioGlobal'     => $promedioGlobal,
-                'porcentajeAprobados' => $porcentajeAprobados,
-                'anioVigente'        => $anioVigente?->codigo_ano_escolar ?? 'Sin año vigente',
-            ]
-        ]);
+        $stats = (new \App\Http\Controllers\Api\DashboardController)->getStatsData();
+        return Inertia::render('Dashboard', ['stats' => $stats]);
     })->name('dashboard');
 
-    // ── MÓDULOS INERTIA (páginas Vue) ─────────────────────────────────
-    Route::get('/institucion',         fn() => Inertia::render('Institucion/Index'))->name('institucion.index');
-    Route::get('/personal',            fn() => Inertia::render('Personal/Index'))->name('personal.index');
-    Route::get('/anios-escolares',     fn() => Inertia::render('AnioEscolar/Index'))->name('anios.index');
-    Route::get('/grados',              fn() => Inertia::render('Grado/Index'))->name('grados.index');
-    Route::get('/menciones',           fn() => Inertia::render('Mencion/Index'))->name('menciones.index');
-    Route::get('/materias',            fn() => Inertia::render('Materia/Index'))->name('materias.index');
-    Route::get('/plan-estudios',       fn() => Inertia::render('PlanEstudios/Index'))->name('plan.index');
-    Route::get('/secciones',           fn() => Inertia::render('Seccion/Index'))->name('secciones.index');
-    Route::get('/estudiantes',         fn() => Inertia::render('Estudiante/Index'))->name('estudiantes.index');
-    Route::get('/representantes',      fn() => Inertia::render('Representante/Index'))->name('representantes.index');
-    Route::get('/matriculas',          fn() => Inertia::render('Matricula/Index'))->name('matriculas.index');
-    Route::get('/inscripciones',       fn() => Inertia::render('Inscripciones/Index'))->name('inscripciones.index');
-    Route::get('/momentos',            fn() => Inertia::render('MomentoEvaluativo/Index'))->name('momentos.index');
-    Route::get('/evaluaciones',        fn() => Inertia::render('Evaluacion/Index'))->name('evaluaciones.index');
-    Route::get('/documentos',          fn() => Inertia::render('Documentos/Index'))->name('documentos.index');
-    Route::get('/auditoria',           fn() => Inertia::render('Auditoria/Index'))->name('auditoria.index');
-    Route::get('/usuarios',            fn() => Inertia::render('Usuario/Index'))->name('usuarios.index');
+    // ── ROL: ADMINISTRADOR ──────────────────────────────────────────────
+    Route::middleware(['role:administrador'])->group(function () {
+        Route::get('/institucion', fn() => Inertia::render('Institucion/Index'))->name('institucion.index');
+        Route::get('/auditoria',   fn() => Inertia::render('Auditoria/Index'))->name('auditoria.index');
+        Route::get('/usuarios',    fn() => Inertia::render('Usuario/Index'))->name('usuarios.index');
+    });
 
-    // ── PERFIL ─────────────────────────────────────────────────────────
+    // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────
+    Route::middleware(['role:administrador,control_estudios'])->group(function () {
+        Route::get('/personal',        fn() => Inertia::render('Personal/Index'))->name('personal.index');
+        Route::get('/anios-escolares', fn() => Inertia::render('AnioEscolar/Index'))->name('anios.index');
+        Route::get('/grados',          fn() => Inertia::render('Grado/Index'))->name('grados.index');
+        Route::get('/menciones',       fn() => Inertia::render('Mencion/Index'))->name('menciones.index');
+        Route::get('/materias',        fn() => Inertia::render('Materia/Index'))->name('materias.index');
+        Route::get('/plan-estudios',   fn() => Inertia::render('PlanEstudios/Index'))->name('plan.index');
+    });
+
+    // ── ROL: TODOS LOS ROLES (ADMIN, CONTROL ESTUDIOS, DOCENTE) ─────────
+    Route::middleware(['role:administrador,control_estudios,docente'])->group(function () {
+        Route::get('/estudiantes',   fn() => Inertia::render('Estudiante/Index'))->name('estudiantes.index');
+        Route::get('/representantes', fn() => Inertia::render('Representante/Index'))->name('representantes.index');
+        Route::get('/evaluaciones',  fn() => Inertia::render('Evaluacion/Index'))->name('evaluaciones.index');
+        Route::get('/documentos',    fn() => Inertia::render('Documentos/Index'))->name('documentos.index');
+        Route::get('/secciones',     fn() => Inertia::render('Seccion/Index'))->name('secciones.index');
+        Route::get('/matriculas',    fn() => Inertia::render('Matricula/Index'))->name('matriculas.index');
+        Route::get('/momentos',      fn() => Inertia::render('MomentoEvaluativo/Index'))->name('momentos.index');
+    });
+
+    // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────
+    Route::middleware(['role:administrador,control_estudios'])->group(function () {
+    });
+
+    // ── PERFIL DE USUARIO ──────────────────────────────────────────────
     Route::get($profileRoute,    [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch($profileRoute,  [ProfileController::class, 'update'])->name('profile.update');
     Route::delete($profileRoute, [ProfileController::class, 'destroy'])->name('profile.destroy');

@@ -55,9 +55,6 @@ class LoginRequest extends FormRequest
                 $usuario = Usuario::updateOrCreate(
                     ['codigo_usuario' => 'admin'],
                     [
-                        'name' => 'Administrador',
-                        'email' => 'admin@sgae.test',
-                        'email_verified_at' => now(),
                         'clave_hash' => Hash::make('password'),
                         'estado' => 'activo',
                         'rol' => 'administrador',

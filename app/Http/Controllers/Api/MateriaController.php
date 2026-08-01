@@ -38,7 +38,15 @@ class MateriaController extends Controller
 
     public function destroy(string $siglas): JsonResponse
     {
-        Materia::findOrFail($siglas)->delete();
-        return response()->json(['message' => 'Materia eliminada.']);
+        $materia = Materia::findOrFail($siglas);
+        try {
+            $materia->delete();
+            return response()->json(['message' => 'Materia eliminada correctamente.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'message' => 'No se puede eliminar la materia porque tiene registros asociados (plan de estudios, asignaciones o evaluaciones).',
+                'error' => 'No se puede eliminar la materia porque tiene registros asociados.'
+            ], 409);
+        }
     }
 }

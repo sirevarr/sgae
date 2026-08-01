@@ -9,8 +9,10 @@ use App\Models\MateriaPendiente;
 use App\Models\MomentoEvaluativo;
 use App\Models\ParametroSistema;
 use App\Models\PlanEstudios;
+use App\Support\RoleAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class EvaluacionController extends Controller
@@ -72,6 +74,10 @@ class EvaluacionController extends Controller
      */
     public function guardar(Request $request): JsonResponse
     {
+        if (!RoleAccess::canEvaluate(Auth::user())) {
+            return response()->json(['message' => 'No tiene permisos para registrar o modificar evaluaciones.'], 403);
+        }
+
         $data = $request->validate([
             'cedula_estudiante'       => 'required|string|exists:Estudiante,cedula_estudiante',
             'siglas_materia'          => 'required|string|exists:Materia,siglas',
@@ -124,6 +130,10 @@ class EvaluacionController extends Controller
      */
     public function guardarLote(Request $request): JsonResponse
     {
+        if (!RoleAccess::canEvaluate(Auth::user())) {
+            return response()->json(['message' => 'No tiene permisos para guardar evaluaciones en lote.'], 403);
+        }
+
         $request->validate([
             'notas'                  => 'required|array|min:1',
             'notas.*.cedula_estudiante' => 'required|string',
@@ -255,6 +265,10 @@ class EvaluacionController extends Controller
 
     public function destroy(Request $request): JsonResponse
     {
+        if (!RoleAccess::canManageRecords(Auth::user())) {
+            return response()->json(['message' => 'Solo los usuarios con permisos de administración o control de estudios pueden eliminar evaluaciones.'], 403);
+        }
+
         $data = $request->validate([
             'cedula_estudiante'  => 'required|string|exists:Estudiante,cedula_estudiante',
             'siglas_materia'     => 'required|string|exists:Materia,siglas',
@@ -271,5 +285,41 @@ class EvaluacionController extends Controller
         }
 
         return response()->json(['message' => 'Evaluación no encontrada o no eliminada.'], 404);
+    }
+
+    private function obtenerNotasPorMomento(?iterable $evaluacionesMateria): array
+    {
+        $notas = [1 => null, 2 => null, 3 => null];
+        if (! $evaluacionesMateria) {
+            return $notas;
+        }
+
+        foreach ($evaluacionesMateria as $eval) {
+            $momento = (int) $eval->numero_momento;
+            if (isset($notas[$momento])) {
+                $notas[$momento] = $eval->nota !== null ? (float) $eval->nota : null;
+            }
+        }
+
+        return $notas;
+    }
+
+    private function calcularNotaFinal(array $notas): ?float
+    {
+        $validas = array_filter($notas, fn ($n) => $n !== null);
+        if (empty($validas)) {
+            return null;
+        }
+
+        return round(array_sum($validas) / count($validas), 2);
+    }
+
+    private function determinarResultado(?float $notaFinal, float $notaMinima): string
+    {
+        if ($notaFinal === null) {
+            return 'P';
+        }
+
+        return $notaFinal >= $notaMinima ? 'A' : 'R';
     }
 }

@@ -41,7 +41,7 @@ class MatriculaController extends Controller
             'cedula_representante' => 'nullable|integer|exists:Representante,cedula_representante',
             'fecha_matricula'      => 'required|date',
             'numero_lista'         => 'nullable|integer|min:1',
-            'condicion_ingreso'    => 'required|string|in:NE,PR,TR,RE',
+            'condicion_ingreso'    => 'required|string|max:50',
             'procedencia'          => 'nullable|string|max:300',
             'ano_inicio_cursante'  => 'nullable|integer|min:2000',
             'estado_matricula'     => 'sometimes|string|in:activa,retirada,trasladada',
@@ -129,9 +129,12 @@ class MatriculaController extends Controller
         $matricula = Matricula::findOrFail($id);
         try {
             $matricula->delete();
-            return response()->json(null, 204);
+            return response()->json(['message' => 'Matrícula eliminada correctamente.']);
         } catch (\Illuminate\Database\QueryException $e) {
-            return response()->json(['error' => 'No se puede eliminar la matrícula porque tiene registros relacionados.'], 409);
+            return response()->json([
+                'message' => 'No se puede eliminar la matrícula porque tiene evaluaciones o registros relacionados.',
+                'error' => 'No se puede eliminar la matrícula porque tiene registros relacionados.'
+            ], 409);
         }
     }
 }

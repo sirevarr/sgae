@@ -41,7 +41,7 @@ class DocumentoController extends Controller
     public function constanciaEstudio(Request $request, string $cedula, string $anio)
     {
         $motivo = $request->string('motivo', '')->toString();
-        $this->registrarEmision('constancia_estudio', $cedula, $anio);
+        $this->registrarEmision('constancia', $cedula, $anio);
         return $this->pdf->constanciaEstudio($cedula, $anio, $motivo);
     }
 
@@ -51,7 +51,7 @@ class DocumentoController extends Controller
      */
     public function constanciaConducta(string $cedula, string $anio)
     {
-        $this->registrarEmision('constancia_conducta', $cedula, $anio);
+        $this->registrarEmision('constancia', $cedula, $anio);
         return $this->pdf->constanciaConducta($cedula, $anio);
     }
 
@@ -61,7 +61,7 @@ class DocumentoController extends Controller
      */
     public function constanciaProsecucion(string $cedula, string $anio)
     {
-        $this->registrarEmision('constancia_prosecucion', $cedula, $anio);
+        $this->registrarEmision('constancia', $cedula, $anio);
         return $this->pdf->constanciaProsecucion($cedula, $anio);
     }
 
@@ -71,7 +71,7 @@ class DocumentoController extends Controller
      */
     public function constanciaAsistencia(string $cedula, string $anio)
     {
-        $this->registrarEmision('constancia_asistencia', $cedula, $anio);
+        $this->registrarEmision('constancia', $cedula, $anio);
         return $this->pdf->constanciaAsistencia($cedula, $anio);
     }
 

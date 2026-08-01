@@ -36,7 +36,15 @@ class MencionController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Mencion::findOrFail($id)->delete();
-        return response()->json(['message' => 'Mención eliminada.']);
+        $mencion = Mencion::findOrFail($id);
+        try {
+            $mencion->delete();
+            return response()->json(['message' => 'Mención eliminada correctamente.']);
+        } catch (\Illuminate\Database\QueryException $e) {
+            return response()->json([
+                'message' => 'No se puede eliminar la mención porque tiene registros asociados (secciones, plan de estudios o evaluaciones).',
+                'error' => 'No se puede eliminar la mención porque tiene registros asociados.'
+            ], 409);
+        }
     }
 }

@@ -53,17 +53,6 @@ class InstitucionController extends Controller
             'coordinador_academico'  => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
         ]);
 
-        $data = $request->validate([
-            'nombre'                 => 'sometimes|string|max:150',
-            'direccion'              => 'sometimes|string|max:200',
-            'telefono'               => 'sometimes|string|max:20',
-            'municipio'              => 'sometimes|string|max:80',
-            'estado'                 => 'sometimes|string|max:80',
-            'zona_educativa'         => 'sometimes|string|max:80',
-            'director_actual'        => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
-            'coordinador_academico'  => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
-        ]);
-
         $inst->update($data);
         return response()->json($inst->fresh(['director', 'coordinador']));
     }

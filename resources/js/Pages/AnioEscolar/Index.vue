@@ -128,9 +128,9 @@ async function ejecutarCopia() {
     try {
         const { data } = await axios.post('/api/anios-escolares/copiar-config', copiaForm);
         copiaResultados.value = data.resultados;
-        copiaMsg.value = `✅ Copiados: ${data.resultados.plan_copiados} materias, ${data.resultados.secciones_copiadas} secciones, ${data.resultados.asignaciones_copiadas} asignaciones.`;
+        copiaMsg.value = `Copiados: ${data.resultados.plan_copiados} materias, ${data.resultados.secciones_copiadas} secciones, ${data.resultados.asignaciones_copiadas} asignaciones.`;
         if (data.resultados.errores?.length) {
-            copiaMsg.value += `\n⚠️ ${data.resultados.errores.length} error(es) parciales.`;
+            copiaMsg.value += `\n${data.resultados.errores.length} error(es) parciales.`;
         }
         cargar();
     } catch (e) {
@@ -178,7 +178,7 @@ onMounted(cargar);
                 </div>
                 <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-borde flex-wrap">
                     <button v-if="canManageRecords" @click="abrirCopia(a)" class="btn-table-action text-[#5B3E0E] hover:text-[#3D2A05]" title="Copiar configuración a otro año">
-                        📋 Copiar Config
+                        Copiar Configuración
                     </button>
                     <button v-if="canManageRecords" @click="abrir(a)" class="btn-table-action">Editar</button>
                     <button v-if="canManageRecords" @click="eliminar(a)" class="btn-table-action text-rojo hover:text-rojo-dark">Eliminar</button>
@@ -237,7 +237,7 @@ onMounted(cargar);
                 <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                     <!-- Header -->
                     <div class="px-6 py-4 border-b border-borde flex justify-between items-center sticky top-0 bg-paper z-10">
-                        <h2 class="font-serif font-semibold text-tinta text-[17px]">📋 Copiar Configuración del Año Anterior</h2>
+                        <h2 class="font-serif font-semibold text-tinta text-[17px]">Copiar Configuración del Año Anterior</h2>
                         <button @click="modalCopia=false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
                     </div>
 
@@ -287,7 +287,7 @@ onMounted(cargar);
                         <!-- Botón Vista Previa -->
                         <div class="flex gap-3">
                             <button @click="cargarPreview" :disabled="loadingPreview || !copiaForm.codigo_ano_destino" class="btn-secondary text-[13px] px-4 py-2">
-                                {{ loadingPreview ? 'Cargando...' : '🔍 Vista Previa' }}
+                                {{ loadingPreview ? 'Cargando...' : 'Vista Previa' }}
                             </button>
                         </div>
 
@@ -296,7 +296,7 @@ onMounted(cargar);
                             <!-- Advertencia si destino ya tiene datos -->
                             <div v-if="preview.destino_existente.plan_estudios > 0 || preview.destino_existente.secciones > 0"
                                 class="bg-dorado-soft border border-dorado/30 text-[#5B3E0E] text-[12px] px-4 py-3 rounded-[4px]">
-                                ⚠️ El año destino <strong>{{ copiaForm.codigo_ano_destino }}</strong> ya tiene:
+                                El año destino <strong>{{ copiaForm.codigo_ano_destino }}</strong> ya tiene:
                                 <span v-if="preview.destino_existente.plan_estudios > 0">{{ preview.destino_existente.plan_estudios }} entradas en plan de estudios</span>
                                 <span v-if="preview.destino_existente.secciones > 0">, {{ preview.destino_existente.secciones }} secciones</span>
                                 <span v-if="preview.destino_existente.asignaciones > 0">, {{ preview.destino_existente.asignaciones }} asignaciones</span>.
@@ -306,7 +306,7 @@ onMounted(cargar);
                             <!-- Resumen Plan -->
                             <div v-if="copiaForm.copiar_plan && preview.plan_estudios.total > 0" class="border border-borde rounded-[4px] overflow-hidden">
                                 <div class="bg-crema px-4 py-2 border-b border-borde">
-                                    <span class="text-[12px] font-semibold text-tinta">📚 Plan de Estudios — {{ preview.plan_estudios.total }} materias</span>
+                                    <span class="text-[12px] font-semibold text-tinta">Plan de Estudios — {{ preview.plan_estudios.total }} materias</span>
                                 </div>
                                 <table class="w-full text-[11px]">
                                     <thead><tr class="border-b border-borde bg-crema/50">
@@ -329,7 +329,7 @@ onMounted(cargar);
                             <!-- Resumen Secciones -->
                             <div v-if="copiaForm.copiar_secciones && preview.secciones.total > 0" class="border border-borde rounded-[4px] overflow-hidden">
                                 <div class="bg-crema px-4 py-2 border-b border-borde">
-                                    <span class="text-[12px] font-semibold text-tinta">🏫 Secciones — {{ preview.secciones.total }} secciones</span>
+                                    <span class="text-[12px] font-semibold text-tinta">Secciones — {{ preview.secciones.total }} secciones</span>
                                 </div>
                                 <table class="w-full text-[11px]">
                                     <thead><tr class="border-b border-borde bg-crema/50">
@@ -354,7 +354,7 @@ onMounted(cargar);
                             <!-- Resumen Asignaciones -->
                             <div v-if="copiaForm.copiar_asignaciones && preview.asignaciones.total > 0" class="border border-borde rounded-[4px] overflow-hidden">
                                 <div class="bg-dorado-soft px-4 py-2 border-b border-dorado/20">
-                                    <span class="text-[12px] font-semibold text-[#5B3E0E]">👥 Asignaciones Docentes — {{ preview.asignaciones.total }} sugerencias</span>
+                                    <span class="text-[12px] font-semibold text-[#5B3E0E]">Asignaciones Docentes — {{ preview.asignaciones.total }} sugerencias</span>
                                     <span class="text-[10px] text-[#7A5A0E] ml-2">(editables después de copiar)</span>
                                 </div>
                                 <table class="w-full text-[11px]">
@@ -380,7 +380,7 @@ onMounted(cargar);
                         <button @click="modalCopia=false" class="btn-secondary">Cerrar</button>
                         <button v-if="preview && !copiaResultados" @click="ejecutarCopia" :disabled="copiando"
                             class="btn-primary text-[13px] px-5 py-2.5 flex items-center gap-2">
-                            {{ copiando ? 'Copiando...' : '✅ Confirmar Copia' }}
+                            {{ copiando ? 'Copiando...' : 'Confirmar Copia' }}
                         </button>
                     </div>
                 </div>

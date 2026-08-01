@@ -129,7 +129,7 @@ async function eliminar(s) {
     } catch (e) {
         const msg = e.response?.data?.error ?? e.response?.data?.message ?? e.message;
         errorMsg.value = msg;
-        alert('⚠️ ' + msg);
+        alert(msg);
     }
 }
 
@@ -214,7 +214,7 @@ onMounted(async () => { await cargarCatalogos(); cargar(); });
 
         <!-- Error -->
         <div v-if="errorMsg" class="mb-4 bg-[#F4DEDA] border border-rojo/20 text-rojo-dark text-[12px] font-semibold px-4 py-3 rounded-[4px] flex justify-between items-center">
-            <span>⚠️ {{ errorMsg }}</span>
+            <span>{{ errorMsg }}</span>
             <button @click="errorMsg = ''" class="text-rojo-dark/70 hover:text-rojo-dark ml-4">&times;</button>
         </div>
 

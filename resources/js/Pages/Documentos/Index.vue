@@ -275,7 +275,7 @@ async function cargarRespaldos() {
             <button v-if="isAdmin" @click="tab = 'respaldos'; errorMsg = ''; cargarRespaldos()"
                 :class="['pb-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px',
                     tab === 'respaldos' ? 'border-dorado text-tinta' : 'border-transparent text-piedra hover:text-tinta']">
-                🛡️ Respaldos
+                Respaldos de Base de Datos
             </button>
         </div>
 
@@ -480,7 +480,7 @@ async function cargarRespaldos() {
 
                 <!-- Alertas -->
                 <div v-if="respaldoMsg" class="mb-4 bg-[#E8F5E9] border border-[#A5D6A7] text-[#1b5e20] text-[12px] font-semibold px-4 py-3 rounded-[4px] whitespace-pre-line flex justify-between items-start">
-                    <span>✅ {{ respaldoMsg }}</span>
+                    <span>{{ respaldoMsg }}</span>
                     <button @click="respaldoMsg = ''" class="text-[#1b5e20] ml-4">&times;</button>
                 </div>
                 <div v-if="respaldoError" class="mb-4 bg-[#F4DEDA] border border-rojo/20 text-rojo-dark text-[12px] font-semibold px-4 py-3 rounded-[4px] flex justify-between items-start">
@@ -491,7 +491,7 @@ async function cargarRespaldos() {
                 <button @click="generarRespaldo" :disabled="loadingRespaldo"
                     class="btn-primary text-[13px] px-6 py-2.5 flex items-center gap-2">
                     <span v-if="loadingRespaldo">Generando respaldo...</span>
-                    <span v-else>🛡️ Generar Respaldo Ahora</span>
+                    <span v-else>Generar Respaldo Ahora</span>
                 </button>
             </div>
 

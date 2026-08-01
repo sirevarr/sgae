@@ -235,30 +235,30 @@ onMounted(cargarCatalogos);
                     <h1 class="font-serif font-semibold text-[20px] text-tinta leading-tight">Evaluaciones</h1>
                     <p class="text-[11px] text-piedra mt-0.5">Ingreso de notas por sección y momento evaluativo</p>
                 </div>
-                <button v-if="cargado && canManageRecords" @click="guardarTodo" :disabled="saving"
-                    class="btn-primary">
-                    {{ saving ? 'Guardando...' : 'Guardar Todas las Notas' }}
-                </button>
-                <div v-else-if="cargado" class="border border-borde bg-crema px-3 py-2 rounded-[4px] text-[12px] text-piedra font-semibold">
-                    Modo docente: solo visualización y exportación.
+                <div class="flex items-center gap-3">
+                    <button @click="showEquivalencias = true" class="btn-secondary">
+                        Escala Literales MPPE
+                    </button>
+                    <button v-if="cargado && canManageRecords" @click="guardarTodo" :disabled="saving"
+                        class="btn-primary">
+                        {{ saving ? 'Guardando...' : 'Guardar Todas las Notas' }}
+                    </button>
+                    <div v-else-if="cargado" class="border border-borde bg-crema px-3 py-2 rounded-[4px] text-[12px] text-piedra font-semibold">
+                        Modo docente: solo visualización y exportación.
+                    </div>
                 </div>
             </div>
         </template>
 
         <!-- Filtros -->
         <div class="bg-paper border border-borde rounded-[6px] p-5 mb-5">
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                     <label for="filtro-anio" class="lbl">Año Escolar</label>
-                    <div class="flex gap-3">
-                        <button @click="showEquivalencias = true" class="btn-secondary text-[12px] flex items-center gap-1.5 px-3 py-1.5">
-                            ℹ️ Escala Literales (MPPE)
-                        </button>
-                        <select v-model="filtro.codigo_ano_escolar" @change="cargarSecciones" class="inp-filter">
-                            <option value="">— Seleccionar Año —</option>
-                            <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">{{ a.codigo_ano_escolar }}</option>
-                        </select>
-                    </div>
+                    <select id="filtro-anio" v-model="filtro.codigo_ano_escolar" @change="cargarSecciones" class="inp mt-1">
+                        <option value="">Seleccionar...</option>
+                        <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">{{ a.codigo_ano_escolar }}</option>
+                    </select>
                 </div>
                 <div>
                     <label for="filtro-seccion" class="lbl">Sección</label>
@@ -474,9 +474,9 @@ onMounted(cargarCatalogos);
                                             <option value="aprobada">Aprobada</option>
                                             <option value="no_aprobada">No aprobada</option>
                                         </select>
-                                        <button @click="eliminarPendiente(p)" title="Eliminar/Deshacer materia pendiente"
+                                        <button @click="eliminarPendiente(p)" title="Eliminar materia pendiente"
                                             class="text-[11px] px-2 py-1 text-rojo hover:text-rojo-dark hover:bg-[#F4DEDA] rounded transition-colors font-semibold ml-1">
-                                            🗑️ Deshacer
+                                            Eliminar
                                         </button>
                                     </td>
                                 </tr>
@@ -492,7 +492,7 @@ onMounted(cargarCatalogos);
             <div v-if="showEquivalencias" class="fixed inset-0 bg-tinta/60 z-50 flex items-center justify-center p-4">
                 <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-lg">
                     <div class="px-6 py-4 border-b border-borde flex justify-between items-center bg-crema/40">
-                        <h2 class="font-serif font-semibold text-tinta text-[16px]">ℹ️ Escala de Equivalencias de Evaluación (MPPE)</h2>
+                        <h2 class="font-serif font-semibold text-tinta text-[16px]">Escala de Equivalencias de Evaluación (MPPE)</h2>
                         <button @click="showEquivalencias=false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
                     </div>
                     <div class="p-5 space-y-4">

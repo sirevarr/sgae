@@ -93,7 +93,7 @@ onMounted(cargar);
 
         <!-- Filtros auditoría -->
         <div class="flex flex-wrap gap-3 mb-4 items-center">
-            <input v-model="filtro.buscar" @input="cargar(1)" placeholder="🔍 Buscar por usuario, ID, tabla..." class="inp-filter w-64" />
+            <input v-model="filtro.buscar" @input="cargar(1)" placeholder="Buscar por usuario, ID, tabla..." class="inp-filter w-64" />
             <input v-if="tab === 'auditoria'" v-model="filtro.tabla_afectada" @input="cargar(1)" placeholder="Filtrar por tabla..." class="inp-filter w-40" />
             <select v-if="tab === 'auditoria'" v-model="filtro.operacion" @change="cargar(1)" class="inp-filter">
                 <option value="">Todas las operaciones</option>

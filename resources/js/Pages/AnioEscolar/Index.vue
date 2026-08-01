@@ -94,8 +94,19 @@ async function eliminar(item) {
 
 // ── Punto 6: funciones de copia ──────────────────────────────
 function abrirCopia(item) {
-    copiaForm.codigo_ano_origen = item.codigo_ano_escolar;
-    copiaForm.codigo_ano_destino = '';
+    // Si el año seleccionado ya tiene datos o está cerrado, suele ser el origen
+    // Si es un año nuevo (planificado o sin datos), se coloca como el destino
+    const esAnioNuevo = item.estado === 'planificado' || !anios.value.some(a => a.codigo_ano_escolar === item.codigo_ano_escolar && a.estado === 'vigente');
+    const anioVigenteOAnterior = anios.value.find(a => a.codigo_ano_escolar !== item.codigo_ano_escolar) ?? item;
+
+    if (esAnioNuevo && anioVigenteOAnterior) {
+        copiaForm.codigo_ano_origen = anioVigenteOAnterior.codigo_ano_escolar;
+        copiaForm.codigo_ano_destino = item.codigo_ano_escolar;
+    } else {
+        copiaForm.codigo_ano_origen = item.codigo_ano_escolar;
+        copiaForm.codigo_ano_destino = '';
+    }
+
     copiaForm.copiar_plan = true;
     copiaForm.copiar_secciones = true;
     copiaForm.copiar_asignaciones = false;
@@ -253,14 +264,19 @@ onMounted(cargar);
                         <!-- Selectores de año -->
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="lbl">Año Origen</label>
-                                <input :value="copiaForm.codigo_ano_origen" disabled class="inp bg-crema/60 cursor-not-allowed" />
+                                <label class="lbl">Año Origen (Copiar desde) *</label>
+                                <select v-model="copiaForm.codigo_ano_origen" class="inp" @change="preview=null; copiaResultados=null">
+                                    <option value="">— Seleccionar Origen —</option>
+                                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
+                                        {{ a.codigo_ano_escolar }} ({{ a.estado }})
+                                    </option>
+                                </select>
                             </div>
                             <div>
-                                <label class="lbl">Año Destino *</label>
+                                <label class="lbl">Año Destino (Copiar hacia) *</label>
                                 <select v-model="copiaForm.codigo_ano_destino" class="inp" @change="preview=null; copiaResultados=null">
-                                    <option value="">— Seleccionar —</option>
-                                    <option v-for="a in aniosDestino" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
+                                    <option value="">— Seleccionar Destino —</option>
+                                    <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
                                         {{ a.codigo_ano_escolar }} ({{ a.estado }})
                                     </option>
                                 </select>

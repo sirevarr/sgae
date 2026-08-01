@@ -938,6 +938,138 @@ def generar_resumen_seccion(data, output_file):
     doc.build(story)
 
 
+def generar_resumen_revision(data, output_file):
+    doc = SimpleDocTemplate(
+        output_file, pagesize=letter,
+        leftMargin=0.6*inch, rightMargin=0.6*inch,
+        topMargin=0.6*inch, bottomMargin=0.6*inch
+    )
+    styles = get_base_styles()
+    story = []
+
+    # Encabezado institucional
+    story.append(build_header_table(data, styles))
+    story.append(Spacer(1, 0.2*inch))
+
+    # Título del Documento
+    title_style = ParagraphStyle(
+        name='RevTitle',
+        parent=styles['DocTitle'],
+        fontSize=12,
+        leading=14,
+        textColor=colors.HexColor('#1C355B'),
+        alignment=TA_CENTER,
+        spaceAfter=10
+    )
+    story.append(Paragraph("<b>RESUMEN DE REVISIÓN (MATERIAS PENDIENTES)</b>", title_style))
+    story.append(Spacer(1, 0.15*inch))
+
+    # Datos del estudiante y año escolar origen
+    est = data.get('estudiante', {})
+    nombres = f"{est.get('nombres', '')} {est.get('apellidos', '')}".strip().upper()
+    cedula = est.get('cedula', '')
+    tipo_doc = est.get('tipo_documento', 'V')
+    cedula_fmt = f"{tipo_doc}-{cedula}"
+    ano_origen = data.get('codigo_ano_escolar_origen', '')
+    fecha_hoy = data.get('fecha_hoy', datetime.now().strftime('%d/%m/%Y %H:%M'))
+
+    info_data = [
+        [
+            Paragraph(f"<b>Estudiante:</b> {nombres}", styles['TableCell']),
+            Paragraph(f"<b>Cédula:</b> {cedula_fmt}", styles['TableCell']),
+        ],
+        [
+            Paragraph(f"<b>Año Escolar de Origen:</b> {ano_origen}", styles['TableCell']),
+            Paragraph(f"<b>Fecha de Emisión:</b> {fecha_hoy}", styles['TableCell']),
+        ]
+    ]
+    info_table = Table(info_data, colWidths=[4.2*inch, 3.0*inch])
+    info_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F4F6F9')),
+        ('BOX', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('INNERGRID', (0,0), (-1,-1), 0.25, colors.HexColor('#E2E8F0')),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ('RIGHTPADDING', (0,0), (-1,-1), 8),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 0.2*inch))
+
+    # Tabla de Materias Pendientes
+    pendientes = data.get('pendientes', [])
+
+    headers = ["#", "Asignatura / Materia", "Grado", "Año Origen", "Estado", "Nota Final", "Fecha Res."]
+    rows = [[Paragraph(h, styles['TableHeaderSmall']) for h in headers]]
+
+    if not pendientes:
+        rows.append([
+            Paragraph("—", styles['TableCellCenter']),
+            Paragraph("El estudiante no posee materias pendientes registradas para este período.", styles['TableCell']),
+            Paragraph("—", styles['TableCellCenter']),
+            Paragraph("—", styles['TableCellCenter']),
+            Paragraph("SIN PENDIENTES", styles['TableCellCenter']),
+            Paragraph("—", styles['TableCellCenter']),
+            Paragraph("—", styles['TableCellCenter']),
+        ])
+    else:
+        for idx, item in enumerate(pendientes, 1):
+            materia_str = f"<b>{item.get('siglas_materia', '')}</b> — {item.get('nombre_materia', '')}"
+            grado_str = item.get('nombre_grado', item.get('codigo_grado', ''))
+            origen_str = item.get('codigo_ano_escolar_origen', ano_origen)
+            estado_str = str(item.get('estado', 'pendiente')).upper()
+            nota_val = item.get('nota_final')
+            nota_str = f"{float(nota_val):.2f}" if (nota_val is not None and str(nota_val).replace('.','',1).isdigit()) else (str(nota_val) if nota_val is not None else "—")
+            fecha_res = item.get('fecha_resolucion') or "—"
+
+            rows.append([
+                Paragraph(str(idx), styles['TableCellCenter']),
+                Paragraph(materia_str, styles['TableCell']),
+                Paragraph(grado_str, styles['TableCellCenter']),
+                Paragraph(origen_str, styles['TableCellCenter']),
+                Paragraph(f"<b>{estado_str}</b>", styles['TableCellCenter']),
+                Paragraph(nota_str, styles['TableCellCenter']),
+                Paragraph(fecha_res, styles['TableCellCenter']),
+            ])
+
+    col_widths = [0.4*inch, 2.7*inch, 0.9*inch, 0.9*inch, 0.9*inch, 0.7*inch, 0.7*inch]
+    t = Table(rows, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1C355B')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 0.4*inch))
+
+    # Firmas de Director / Coordinación
+    inst = data.get('institucion', {})
+    director_name = inst.get('director_nombre', 'DIRECTOR(A)').upper()
+    coord_name = inst.get('coordinador_nombre', 'COORDINADOR(A) ACADÉMICO(A)').upper()
+
+    firmas_data = [
+        [
+            Paragraph(f"____________________________<br/><b>{director_name}</b><br/>Director(a)", styles['SignatureText']),
+            Paragraph(f"____________________________<br/><b>{coord_name}</b><br/>Control de Estudios", styles['SignatureText']),
+        ]
+    ]
+    firmas_table = Table(firmas_data, colWidths=[3.6*inch, 3.6*inch])
+    firmas_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+        ('TOPPADDING', (0,0), (-1,-1), 20),
+    ]))
+    story.append(firmas_table)
+
+    doc.build(story)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generador de PDF con ReportLab para SGAE")
     parser.add_argument("--tipo", required=True, help="Tipo de documento")
@@ -969,6 +1101,8 @@ def main():
         generar_lista_seccion(data, args.output)
     elif tipo == 'resumen_seccion':
         generar_resumen_seccion(data, args.output)
+    elif tipo == 'resumen_revision':
+        generar_resumen_revision(data, args.output)
     else:
         print(f"Error: Tipo de documento desconocido '{tipo}'", file=sys.stderr)
         sys.exit(1)

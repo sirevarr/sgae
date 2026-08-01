@@ -107,7 +107,7 @@ class LoginRequest extends FormRequest
             'ultimo_acceso'     => now()->toDateString(),
         ]);
 
-        Auth::login($usuario, $this->boolean('remember'));
+        Auth::login($usuario, false);
 
         // Registrar en tabla Login
         try {

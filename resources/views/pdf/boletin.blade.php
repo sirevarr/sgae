@@ -347,9 +347,9 @@
                 } else {
                     $resultado = ($def >= $nota_minima || $def == 1) ? 'A' : ($esRevision ? 'V' : 'R');
                     if ($def >= 18)      $literal = 'A';
-                    elseif ($def >= 15)  $literal = 'B';
-                    elseif ($def >= 12)  $literal = 'C';
-                    elseif ($def >= 10)  $literal = 'D';
+                    elseif ($def >= 14)  $literal = 'B';
+                    elseif ($def >= 10)  $literal = 'C';
+                    elseif ($def >= 6)   $literal = 'D';
                     elseif ($def == 1)   $literal = 'A';
                     else                 $literal = 'E';
                 }
@@ -367,9 +367,9 @@
                 // RF-04: calcular literal A-E
                 if ($def !== null) {
                     if ($def >= 18)      $literal = 'A';
-                    elseif ($def >= 15)  $literal = 'B';
-                    elseif ($def >= 12)  $literal = 'C';
-                    elseif ($def >= 10)  $literal = 'D';
+                    elseif ($def >= 14)  $literal = 'B';
+                    elseif ($def >= 10)  $literal = 'C';
+                    elseif ($def >= 6)   $literal = 'D';
                     else                 $literal = 'E';
                 } else {
                     $literal = null;

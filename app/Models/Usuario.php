@@ -27,6 +27,12 @@ class Usuario extends Authenticatable implements MustVerifyEmailContract
     protected $keyType    = 'integer';
     public $timestamps    = false;
 
+    /** Deshabilitar la columna remember_token pues no existe en la tabla Usuario */
+    public function getRememberTokenName()
+    {
+        return '';
+    }
+
     /** Campo que identifica al usuario en el formulario de login */
     public function getAuthIdentifierName(): string
     {

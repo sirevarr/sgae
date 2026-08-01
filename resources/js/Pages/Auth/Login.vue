@@ -10,7 +10,6 @@ defineProps({
 const form = useForm({
     codigo_usuario: '',
     password: '',
-    remember: false,
 });
 
 const submit = () => {
@@ -73,20 +72,11 @@ const submit = () => {
                 <InputError class="mt-1.5" :message="form.errors.password" />
             </div>
 
-            <div class="flex items-center justify-between pt-1 gap-3">
-                <label class="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                        type="checkbox"
-                        v-model="form.remember"
-                        class="rounded-[2px] border-borde text-rojo focus:ring-rojo"
-                    />
-                    <span class="text-[12px] text-piedra">Recordarme</span>
-                </label>
-
+            <div class="pt-2">
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="px-5 py-[11px] bg-rojo hover:bg-rojo-dark text-paper text-[13px] font-semibold rounded-[4px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full px-5 py-[11px] bg-rojo hover:bg-rojo-dark text-paper text-[13px] font-semibold rounded-[4px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {{ form.processing ? 'Ingresando...' : 'Ingresar' }}
                 </button>

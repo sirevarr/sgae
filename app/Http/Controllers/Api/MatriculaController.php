@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Matricula;
 use App\Models\Seccion;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MatriculaController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         $q = $this->buildQuery($request)
@@ -63,12 +66,22 @@ class MatriculaController extends Controller
         $data['estado_matricula'] ??= 'activa';
         $matricula = Matricula::create($data);
 
+        // Auditoría: INSERT
+        self::registrarAuditoria(
+            'Matricula',
+            (string) $matricula->id_matricula,
+            'I',
+            null,
+            $matricula->toArray()
+        );
+
         return response()->json($matricula->load(['estudiante', 'seccion.grado']), 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
         $matricula = Matricula::findOrFail($id);
+
         $data = $request->validate([
             'codigo_seccion'       => 'sometimes|string|exists:Seccion,codigo_seccion',
             'cedula_representante' => 'sometimes|nullable|integer',
@@ -79,7 +92,20 @@ class MatriculaController extends Controller
             'fecha_retiro'         => 'sometimes|nullable|date',
             'motivo_retiro'        => 'sometimes|nullable|string',
         ]);
+
+        // Capturar valores anteriores
+        $valoresAnteriores = $matricula->toArray();
+
         $matricula->update($data);
+
+        // Auditoría: UPDATE
+        self::registrarAuditoria(
+            'Matricula',
+            (string) $matricula->id_matricula,
+            'U',
+            $valoresAnteriores,
+            $matricula->fresh()->toArray()
+        );
 
         return response()->json($matricula->fresh(['estudiante', 'seccion.grado']));
     }
@@ -127,8 +153,22 @@ class MatriculaController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $matricula = Matricula::findOrFail($id);
+
+        // Capturar valores antes de eliminar
+        $valoresAnteriores = $matricula->toArray();
+
         try {
             $matricula->delete();
+
+            // Auditoría: DELETE
+            self::registrarAuditoria(
+                'Matricula',
+                (string) $id,
+                'D',
+                $valoresAnteriores,
+                null
+            );
+
             return response()->json(['message' => 'Matrícula eliminada correctamente.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json([

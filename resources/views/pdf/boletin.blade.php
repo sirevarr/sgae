@@ -119,6 +119,14 @@
     table.notas .nota-alta { color: #1b5e20; font-weight: bold; }
     .res-A { color: #1b5e20; font-weight: bold; }
     .res-R { color: #b71c1c; font-weight: bold; }
+    /* RF-05: estado En Revisión */
+    .res-V { color: #c65a00; font-weight: bold; }
+    /* RF-04: literales A-E */
+    .lit-A { color: #1b5e20; font-weight: bold; }
+    .lit-B { color: #2e7d32; font-weight: bold; }
+    .lit-C { color: #f57f17; font-weight: bold; }
+    .lit-D { color: #e65100; font-weight: bold; }
+    .lit-E { color: #b71c1c; font-weight: bold; }
     .revision-mark { font-size: 6.5pt; color: #c65a00; font-style: italic; }
 
     /* ── MATERIAS PENDIENTES ── */
@@ -309,11 +317,12 @@
 <table class="notas">
     <thead>
         <tr>
-            <th style="width:38%;text-align:left;padding-left:6px">Área de Formación / Materia</th>
+            <th style="width:34%;text-align:left;padding-left:6px">Área de Formación / Materia</th>
             @if(!$numero_momento || $numero_momento >= 1)<th>1er Momento</th>@endif
             @if(!$numero_momento || $numero_momento >= 2)<th>2do Momento</th>@endif
             @if(!$numero_momento || $numero_momento >= 3)<th>3er Momento</th>@endif
             <th>Definitiva</th>
+            <th style="width:42px;">Literal</th>
             <th>Resultado</th>
         </tr>
     </thead>
@@ -333,14 +342,34 @@
             $tipoEval = $pe->tipo_evaluacion ?? 'N';
             if ($tipoEval === 'L') {
                 $resultado = $def !== null ? ($def == 1 ? 'A' : 'R') : '—';
+                $literal   = null; // RF-04: no aplica literal A-E a evaluaciones literales
             } else {
-                $resultado = $def !== null ? ($def >= $nota_minima ? 'A' : 'R') : '—';
+                if ($def === null) {
+                    $resultado = '—';
+                    $literal   = null;
+                } elseif ($def >= $nota_minima) {
+                    $resultado = 'A';
+                } elseif ($esRevision) {
+                    $resultado = 'V'; // RF-05: En Revisión
+                } else {
+                    $resultado = 'R';
+                }
+                // RF-04: calcular literal A-E
+                if ($def !== null) {
+                    if ($def >= 18)      $literal = 'A';
+                    elseif ($def >= 15)  $literal = 'B';
+                    elseif ($def >= 12)  $literal = 'C';
+                    elseif ($def >= 10)  $literal = 'D';
+                    else                 $literal = 'E';
+                } else {
+                    $literal = null;
+                }
             }
             if ($def !== null) {
                 $sumaNotas += $def;
                 $cntNotas++;
                 if ($resultado === 'A') $materAprobadas++;
-                else $materReprobadas++;
+                elseif ($resultado === 'R' || $resultado === 'V') $materReprobadas++;
             }
         @endphp
         <tr>
@@ -382,7 +411,18 @@
                     {{ $def ?? '—' }}
                 @endif
             </td>
-            <td class="res-{{ $resultado }}">{{ $resultado === 'A' ? 'Aprobado' : ($resultado === 'R' ? 'Reprobado' : 'Sin nota') }}</td>
+            {{-- RF-04: Columna Literal (solo para evaluaciones numéricas) --}}
+            <td class="{{ $literal ? 'lit-' . $literal : '' }}">
+                {{ $literal ?? '—' }}
+            </td>
+            {{-- RF-05: Resultado con estado En Revisión --}}
+            <td class="res-{{ $resultado }}">
+                @if($resultado === 'A') Aprobado
+                @elseif($resultado === 'R') Reprobado
+                @elseif($resultado === 'V') En Revisión
+                @else Sin nota
+                @endif
+            </td>
         </tr>
     @endforeach
     </tbody>

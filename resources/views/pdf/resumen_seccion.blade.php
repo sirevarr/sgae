@@ -69,6 +69,14 @@
     .nota-alta { color: #1b5e20; }
     .res-A { color: #1b5e20; font-weight: bold; }
     .res-R { color: #b71c1c; font-weight: bold; }
+    /* RF-05: En Revisión */
+    .res-V { color: #c65a00; font-weight: bold; }
+    /* RF-04: literales */
+    .lit-A { color: #1b5e20; font-weight: bold; font-size: 6.5pt; }
+    .lit-B { color: #2e7d32; font-weight: bold; font-size: 6.5pt; }
+    .lit-C { color: #f57f17; font-weight: bold; font-size: 6.5pt; }
+    .lit-D { color: #e65100; font-weight: bold; font-size: 6.5pt; }
+    .lit-E { color: #b71c1c; font-weight: bold; font-size: 6.5pt; }
 
     /* RESUMEN FINAL */
     .resumen-pie {
@@ -154,7 +162,7 @@
                     if (!$numero_momento || $numero_momento >= 1) $colSpan++;
                     if (!$numero_momento || $numero_momento >= 2) $colSpan++;
                     if (!$numero_momento || $numero_momento >= 3) $colSpan++;
-                    $colSpan += 2; // definitiva + resultado
+                    $colSpan += 3; // definitiva + literal + resultado
                 @endphp
                 <th colspan="{{ $colSpan }}" style="font-size:6pt;writing-mode:horizontal-tb;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" title="{{ $mat->nombre }}">
                     {{ $mat->siglas }}
@@ -170,6 +178,7 @@
                 @if(!$numero_momento || $numero_momento >= 2)<th style="width:18px;">M2</th>@endif
                 @if(!$numero_momento || $numero_momento >= 3)<th style="width:18px;">M3</th>@endif
                 <th style="width:20px;">Def.</th>
+                <th style="width:14px;">Lit.</th>
                 <th style="width:18px;">Res.</th>
             @endforeach
         </tr>
@@ -194,13 +203,34 @@
                     $vals = array_filter([$n1, $n2, $n3], fn($v) => $v !== null);
                     $def = count($vals) ? round(array_sum($vals) / count($vals), 2) : null;
                     $tipoEval = $mat->tipo_evaluacion ?? 'N';
+                    $esRevision = $evsMat->where('es_revision', true)->count() > 0;
                     if ($tipoEval === 'L') {
-                        $res = $def !== null ? ($def == 1 ? 'A' : 'R') : '—';
+                        $res     = $def !== null ? ($def == 1 ? 'A' : 'R') : '—';
+                        $literal = null;
                     } else {
-                        $res = $def !== null ? ($def >= $nota_minima ? 'A' : 'R') : '—';
+                        if ($def === null) {
+                            $res     = '—';
+                            $literal = null;
+                        } elseif ($def >= $nota_minima) {
+                            $res = 'A';
+                        } elseif ($esRevision) {
+                            $res = 'V'; // RF-05
+                        } else {
+                            $res = 'R';
+                        }
+                        // RF-04: literal A-E
+                        if ($def !== null) {
+                            if ($def >= 18)      $literal = 'A';
+                            elseif ($def >= 15)  $literal = 'B';
+                            elseif ($def >= 12)  $literal = 'C';
+                            elseif ($def >= 10)  $literal = 'D';
+                            else                 $literal = 'E';
+                        } else {
+                            $literal = null;
+                        }
                     }
                     if ($def !== null) { $sumaProm += $def; $cntProm++; $tieneDatos = true; }
-                    if ($res === 'R') $todoAprobado = false;
+                    if ($res === 'R' || $res === 'V') $todoAprobado = false;
                 @endphp
                 @if(!$numero_momento || $numero_momento >= 1)
                     <td class="{{ $n1 !== null && $tipoEval !== 'L' && $n1 < $nota_minima ? 'nota-baja' : '' }}">{{ $n1 ?? '—' }}</td>
@@ -212,6 +242,9 @@
                     <td class="{{ $n3 !== null && $tipoEval !== 'L' && $n3 < $nota_minima ? 'nota-baja' : '' }}">{{ $n3 ?? '—' }}</td>
                 @endif
                 <td class="{{ $def !== null && $tipoEval !== 'L' && $def < $nota_minima ? 'nota-baja' : '' }}">{{ $def ?? '—' }}</td>
+                {{-- RF-04: literal A-E (solo evaluación numérica) --}}
+                <td class="{{ $literal ? 'lit-' . $literal : '' }}">{{ $literal ?? '—' }}</td>
+                {{-- RF-05: estado con V para En Revisión --}}
                 <td class="res-{{ $res }}">{{ $res }}</td>
             @endforeach
             @php

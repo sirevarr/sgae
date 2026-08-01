@@ -542,4 +542,80 @@ class PdfService
 
         return $pdfContent;
     }
+
+    // ─────────────────────────────────────────────
+    //  RF-07: RESUMEN DE REVISIÓN (MATERIAS PENDIENTES)
+    // ─────────────────────────────────────────────
+
+    /**
+     * Genera el PDF de "Resumen de Revisión" para un estudiante.
+     * Lista las materias de Materia_Pendiente con su estado, nota final y fecha de resolución.
+     *
+     * El folio se diferencia del resumen ordinario mediante el prefijo "REV-"
+     * asignado en DocumentoController::registrarEmisionRevision().
+     */
+    public function resumenRevision(string $cedula_estudiante, string $codigo_ano_escolar_origen): \Illuminate\Http\Response
+    {
+        $estudiante  = Estudiante::findOrFail($cedula_estudiante);
+        $institucion = $this->cargarInstitucion(['director', 'coordinador']);
+
+        // Consultar materias pendientes para ese estudiante y año escolar de origen
+        $pendientes = MateriaPendiente::with(['materia', 'grado', 'anioEscolarOrigen'])
+            ->where('cedula_estudiante', $cedula_estudiante)
+            ->where('codigo_ano_escolar_origen', $codigo_ano_escolar_origen)
+            ->orderBy('siglas_materia')
+            ->get();
+
+        // Construir payload para el script Python (mismo patrón que otros métodos)
+        $pendientesData = $pendientes->map(function ($mp) {
+            return [
+                'siglas_materia'            => $mp->siglas_materia,
+                'nombre_materia'            => $mp->materia->nombre ?? $mp->siglas_materia,
+                'codigo_grado'              => $mp->codigo_grado,
+                'nombre_grado'              => $mp->grado->nombre ?? $mp->codigo_grado,
+                'codigo_ano_escolar_origen' => $mp->codigo_ano_escolar_origen,
+                'estado'                    => $mp->estado ?? 'pendiente',
+                'nota_final'                => $mp->nota_final,
+                'fecha_resolucion'          => $mp->fecha_resolucion
+                    ? \Carbon\Carbon::parse($mp->fecha_resolucion)->format('d/m/Y')
+                    : null,
+            ];
+        })->values()->toArray();
+
+        $payload = [
+            'institucion'               => $this->formatInstitucionData($institucion),
+            'estudiante'                => $this->formatEstudianteData($estudiante),
+            'codigo_ano_escolar_origen' => $codigo_ano_escolar_origen,
+            'pendientes'                => $pendientesData,
+            'total_pendientes'          => count($pendientesData),
+            'fecha_hoy'                 => now()->format('d/m/Y H:i'),
+        ];
+
+        // Intentar generar con ReportLab Python (mismo mecanismo que el resto de PDFs)
+        try {
+            return $this->generarReportLabPdf(
+                'resumen_revision',
+                $payload,
+                "resumen_revision_{$cedula_estudiante}_{$codigo_ano_escolar_origen}.pdf"
+            );
+        } catch (\Throwable $e) {
+            // Fallback: renderizar desde la vista Blade y devolver como HTML/PDF
+            \Illuminate\Support\Facades\Log::warning(
+                "[PdfService] resumenRevision fallback a Blade: " . $e->getMessage()
+            );
+
+            $html = view('pdf.resumen_revision', [
+                'institucion'               => $institucion,
+                'estudiante'                => $estudiante,
+                'pendientes'                => $pendientes,
+                'codigo_ano_escolar_origen' => $codigo_ano_escolar_origen,
+                'fecha_hoy'                 => now()->format('d/m/Y H:i'),
+            ])->render();
+
+            return response($html, 200, [
+                'Content-Type'        => 'text/html; charset=UTF-8',
+                'Content-Disposition' => "inline; filename=\"resumen_revision_{$cedula_estudiante}.html\"",
+            ]);
+        }
+    }
 }

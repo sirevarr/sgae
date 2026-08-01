@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Estudiante;
 use App\Models\FichaAntropometrica;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class EstudianteController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         $q = Estudiante::with('matriculaActual.seccion.grado')
@@ -60,7 +63,18 @@ class EstudianteController extends Controller
         }
 
         $data['estado_estudiante'] ??= 'activo';
-        return response()->json(Estudiante::create($data), 201);
+        $estudiante = Estudiante::create($data);
+
+        // Auditoría: INSERT
+        self::registrarAuditoria(
+            'Estudiante',
+            $estudiante->cedula_estudiante,
+            'I',
+            null,
+            $estudiante->toArray()
+        );
+
+        return response()->json($estudiante, 201);
     }
 
     public function update(Request $request, string $cedula): JsonResponse
@@ -88,7 +102,20 @@ class EstudianteController extends Controller
             'motivo_retiro'        => 'sometimes|nullable|string|max:200',
         ]);
 
+        // Capturar valores anteriores antes del update
+        $valoresAnteriores = $estudiante->toArray();
+
         $estudiante->update($data);
+
+        // Auditoría: UPDATE
+        self::registrarAuditoria(
+            'Estudiante',
+            $estudiante->cedula_estudiante,
+            'U',
+            $valoresAnteriores,
+            $estudiante->fresh()->toArray()
+        );
+
         return response()->json($estudiante->fresh());
     }
 
@@ -117,8 +144,22 @@ class EstudianteController extends Controller
     public function destroy(string $cedula): JsonResponse
     {
         $estudiante = Estudiante::findOrFail($cedula);
+
+        // Capturar valores antes de eliminar
+        $valoresAnteriores = $estudiante->toArray();
+
         try {
             $estudiante->delete();
+
+            // Auditoría: DELETE
+            self::registrarAuditoria(
+                'Estudiante',
+                $cedula,
+                'D',
+                $valoresAnteriores,
+                null
+            );
+
             return response()->json(null, 204);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['error' => 'No se puede eliminar el estudiante porque existen registros relacionados.'], 409);

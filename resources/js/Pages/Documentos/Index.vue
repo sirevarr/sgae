@@ -7,6 +7,7 @@ import axios from 'axios';
 const page = usePage();
 const userRole = computed(() => String(page.props.auth?.user?.rol || 'docente').toLowerCase());
 const canManageRecords = computed(() => !['docente'].includes(userRole.value));
+const isAdmin = computed(() => userRole.value === 'administrador');
 
 // ── Catálogos ──────────────────────────────────────────────────
 const anios       = ref([]);
@@ -17,6 +18,12 @@ const loading     = ref(false);
 const loadingDoc  = ref(false);
 const errorMsg    = ref('');
 const tab         = ref('estudiante');
+
+// Punto 5 — Respaldos
+const respaldos      = ref([]);
+const loadingRespaldo = ref(false);
+const respaldoMsg    = ref('');
+const respaldoError  = ref('');
 
 // ── Formulario por estudiante ─────────────────────────────────
 const filtro = reactive({
@@ -34,14 +41,22 @@ const filtroSec = reactive({
     numero_momento: null,
 });
 
-// ── Tipos de documentos por estudiante ───────────────────────
-const tiposEstudiante = [
+// ── Tipos de documentos por estudiante ────────────────────
+const tiposEstudianteBase = [
     { key: 'boletin',                label: 'Boletín de Calificaciones',   momentos: true  },
     { key: 'constancia_estudio',     label: 'Constancia de Estudios',      momentos: false },
     { key: 'constancia_conducta',    label: 'Constancia de Buena Conducta', momentos: false },
     { key: 'constancia_prosecucion', label: 'Constancia de Prosecución',   momentos: false },
     { key: 'constancia_asistencia',  label: 'Constancia de Asistencia',    momentos: false },
 ];
+// RF-07: Resumen de Revisión solo para administrador y control de estudios
+const tiposEstudiante = computed(() => {
+    const tipos = [...tiposEstudianteBase];
+    if (canManageRecords.value) {
+        tipos.push({ key: 'resumen_revision', label: 'Resumen de Revisión (Materias Pendientes)', momentos: false });
+    }
+    return tipos;
+});
 
 // ── Tipos de documentos por sección ──────────────────────────
 const tiposSeccion = [
@@ -56,6 +71,14 @@ const tipoLabel = {
     constancia_conducta:    'Const. Conducta',
     constancia_prosecucion: 'Const. Prosecución',
     constancia_asistencia:  'Const. Asistencia',
+    resumen_final:          'Resumen Final',
+};
+// RF-07: helper para distinguir folios con prefijo REV-
+const tipoLabelConFolio = (doc) => {
+    if (doc.tipo_documento === 'resumen_final' && doc.folio?.startsWith('REV-')) {
+        return 'Resumen Revisión';
+    }
+    return tipoLabel[doc.tipo_documento] ?? doc.tipo_documento;
 };
 
 // ── Funciones de carga ────────────────────────────────────────
@@ -199,6 +222,32 @@ const seccionLabel = computed(() => {
 });
 
 onMounted(cargarCatalogos);
+
+// Punto 5: funciones de respaldo
+async function generarRespaldo() {
+    loadingRespaldo.value = true;
+    respaldoMsg.value = '';
+    respaldoError.value = '';
+    try {
+        const { data } = await axios.post('/api/respaldos');
+        respaldoMsg.value = data.message + (data.detalle ? '\n' + data.detalle : '');
+        await cargarRespaldos();
+    } catch (e) {
+        const msg = e.response?.data?.message || e.message;
+        respaldoError.value = 'Error al generar respaldo: ' + msg;
+    } finally {
+        loadingRespaldo.value = false;
+    }
+}
+
+async function cargarRespaldos() {
+    try {
+        const { data } = await axios.get('/api/respaldos');
+        respaldos.value = data.respaldos ?? [];
+    } catch (e) {
+        respaldos.value = [];
+    }
+}
 </script>
 
 <template>
@@ -222,6 +271,11 @@ onMounted(cargarCatalogos);
                 :class="['pb-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px',
                     tab === 'seccion' ? 'border-dorado text-tinta' : 'border-transparent text-piedra hover:text-tinta']">
                 Por Sección
+            </button>
+            <button v-if="isAdmin" @click="tab = 'respaldos'; errorMsg = ''; cargarRespaldos()"
+                :class="['pb-3 text-[13px] font-semibold transition-colors border-b-2 -mb-px',
+                    tab === 'respaldos' ? 'border-dorado text-tinta' : 'border-transparent text-piedra hover:text-tinta']">
+                🛡️ Respaldos
             </button>
         </div>
 
@@ -326,11 +380,11 @@ onMounted(cargarCatalogos);
                             </thead>
                             <tbody class="divide-y divide-borde">
                                 <tr v-for="doc in documentos" :key="doc.id_documento" class="hover:bg-crema transition-colors">
-                                    <td class="td">
-                                        <span class="badge badge-neutral">
-                                            {{ tipoLabel[doc.tipo_documento] ?? doc.tipo_documento }}
-                                        </span>
-                                    </td>
+                                <td class="td">
+                                    <span class="badge badge-neutral">
+                                        {{ tipoLabelConFolio(doc) }}
+                                    </span>
+                                </td>
                                     <td class="td font-mono text-[12px] text-piedra">{{ doc.folio }}</td>
                                     <td class="td text-[12px] text-piedra">
                                         {{ doc.codigo_ano_escolar }}
@@ -414,6 +468,59 @@ onMounted(cargarCatalogos);
                         <p class="text-tinta font-semibold text-[13px]">{{ seccionLabel }}</p>
                         <p class="text-piedra text-[11px] mt-0.5">Año Escolar: {{ filtroSec.codigo_ano_escolar }}</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: RESPALDOS (solo administrador) -->
+        <div v-if="tab === 'respaldos'" class="space-y-5">
+            <div class="bg-paper border border-borde rounded-[6px] p-6">
+                <h2 class="font-serif font-semibold text-tinta text-[17px] mb-1">Respaldo de Base de Datos</h2>
+                <p class="text-[12px] text-piedra mb-5">Genera un respaldo del sistema en <code class="bg-crema px-1 rounded">storage/app/respaldos/</code>. El respaldo se ejecuta inmediatamente.</p>
+
+                <!-- Alertas -->
+                <div v-if="respaldoMsg" class="mb-4 bg-[#E8F5E9] border border-[#A5D6A7] text-[#1b5e20] text-[12px] font-semibold px-4 py-3 rounded-[4px] whitespace-pre-line flex justify-between items-start">
+                    <span>✅ {{ respaldoMsg }}</span>
+                    <button @click="respaldoMsg = ''" class="text-[#1b5e20] ml-4">&times;</button>
+                </div>
+                <div v-if="respaldoError" class="mb-4 bg-[#F4DEDA] border border-rojo/20 text-rojo-dark text-[12px] font-semibold px-4 py-3 rounded-[4px] flex justify-between items-start">
+                    <span>{{ respaldoError }}</span>
+                    <button @click="respaldoError = ''" class="text-rojo-dark ml-4">&times;</button>
+                </div>
+
+                <button @click="generarRespaldo" :disabled="loadingRespaldo"
+                    class="btn-primary text-[13px] px-6 py-2.5 flex items-center gap-2">
+                    <span v-if="loadingRespaldo">Generando respaldo...</span>
+                    <span v-else>🛡️ Generar Respaldo Ahora</span>
+                </button>
+            </div>
+
+            <!-- Listado de respaldos existentes -->
+            <div class="bg-paper border border-borde rounded-[6px] overflow-hidden">
+                <div class="px-5 py-4 border-b border-borde flex items-center justify-between">
+                    <h3 class="font-serif font-semibold text-tinta text-[15px]">Respaldos Existentes</h3>
+                    <span class="text-[11px] text-piedra-soft">{{ respaldos.length }} archivos</span>
+                </div>
+                <div v-if="!respaldos.length" class="p-8 text-center text-piedra text-[13px]">
+                    No hay respaldos generados aún. Usa el botón de arriba para crear el primero.
+                </div>
+                <div v-else>
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-borde">
+                                <th class="th">Nombre del Archivo</th>
+                                <th class="th">Tamaño</th>
+                                <th class="th">Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-borde">
+                            <tr v-for="r in respaldos" :key="r.nombre" class="hover:bg-crema transition-colors">
+                                <td class="td font-mono text-[11px] text-tinta">{{ r.nombre }}</td>
+                                <td class="td text-[12px] text-piedra">{{ (r.tamaño / 1024).toFixed(1) }} KB</td>
+                                <td class="td text-[12px] text-piedra">{{ r.fecha }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

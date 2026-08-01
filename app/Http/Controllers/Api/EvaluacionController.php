@@ -9,6 +9,7 @@ use App\Models\MateriaPendiente;
 use App\Models\MomentoEvaluativo;
 use App\Models\ParametroSistema;
 use App\Models\PlanEstudios;
+use App\Models\Traits\Auditable;
 use App\Support\RoleAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class EvaluacionController extends Controller
 {
+    use Auditable;
+
     /**
      * Obtener evaluaciones — filtrar por sección, año escolar y momento.
      * Devuelve una matriz pivotada por estudiante con sus notas.
@@ -99,6 +102,19 @@ class EvaluacionController extends Controller
             ], 422);
         }
 
+        // Capturar registro existente para auditoría (antes del cambio)
+        $evaluacionExistente = Evaluacion::where([
+            'cedula_estudiante'  => $data['cedula_estudiante'],
+            'siglas_materia'     => $data['siglas_materia'],
+            'id_mencion'         => $data['id_mencion'],
+            'codigo_grado'       => $data['codigo_grado'],
+            'codigo_ano_escolar' => $data['codigo_ano_escolar'],
+            'numero_momento'     => $data['numero_momento'],
+        ])->first();
+
+        $esNueva = !$evaluacionExistente;
+        $valoresAnteriores = $evaluacionExistente ? $evaluacionExistente->toArray() : null;
+
         $evaluacion = Evaluacion::updateOrCreate(
             [
                 'cedula_estudiante'  => $data['cedula_estudiante'],
@@ -116,6 +132,15 @@ class EvaluacionController extends Controller
                 'fecha_modificacion'       => now()->toDateString(),
                 'motivo_modificacion'      => $data['motivo_modificacion'] ?? null,
             ]
+        );
+
+        // Registrar auditoría (I = insert, U = update)
+        self::registrarAuditoria(
+            'Evaluacion',
+            (string) $evaluacion->id_evaluacion,
+            $esNueva ? 'I' : 'U',
+            $valoresAnteriores,
+            $evaluacion->fresh()->toArray()
         );
 
         return response()->json([
@@ -163,7 +188,20 @@ class EvaluacionController extends Controller
 
         DB::transaction(function () use ($request) {
             foreach ($request->notas as $item) {
-                Evaluacion::updateOrCreate(
+                // Capturar registro existente antes del cambio
+                $existente = Evaluacion::where([
+                    'cedula_estudiante'  => $item['cedula_estudiante'],
+                    'siglas_materia'     => $item['siglas_materia'],
+                    'id_mencion'         => $item['id_mencion'],
+                    'codigo_grado'       => $item['codigo_grado'],
+                    'codigo_ano_escolar' => $item['codigo_ano_escolar'],
+                    'numero_momento'     => $item['numero_momento'],
+                ])->first();
+
+                $esNueva = !$existente;
+                $valoresAnteriores = $existente ? $existente->toArray() : null;
+
+                $evaluacion = Evaluacion::updateOrCreate(
                     [
                         'cedula_estudiante'  => $item['cedula_estudiante'],
                         'siglas_materia'     => $item['siglas_materia'],
@@ -177,6 +215,15 @@ class EvaluacionController extends Controller
                         'fecha_evaluacion' => now()->toDateString(),
                     ]
                 );
+
+                // Auditoría por cada nota guardada en lote
+                self::registrarAuditoria(
+                    'Evaluacion',
+                    (string) $evaluacion->id_evaluacion,
+                    $esNueva ? 'I' : 'U',
+                    $valoresAnteriores,
+                    $evaluacion->fresh()->toArray()
+                );
             }
         });
 
@@ -185,7 +232,7 @@ class EvaluacionController extends Controller
 
     /**
      * Resumen de rendimiento por sección al finalizar todos los momentos.
-     * Calcula promedios finales y determina aprobados/reprobados.
+     * Calcula promedios finales, literales (A-E) y determina estatus (A/V/R/P).
      */
     public function resumenSeccion(Request $request): JsonResponse
     {
@@ -227,10 +274,15 @@ class EvaluacionController extends Controller
 
             foreach ($plan as $pe) {
                 $siglas       = $pe->siglas_materia;
+                $tipoEval     = $pe->tipo_evaluacion ?? 'N';
                 $evalsMateria = $evalsEstudiante?->get($siglas);
                 $notas        = $this->obtenerNotasPorMomento($evalsMateria);
                 $notaFinal    = $this->calcularNotaFinal($notas);
-                $resultado    = $this->determinarResultado($notaFinal, $notaMinima);
+                $tieneRevision = $this->verificarRevision($evalsMateria);
+                $resultado    = $this->determinarResultado($notaFinal, $notaMinima, $tieneRevision);
+
+                // RF-04: Literal A-E solo para evaluaciones numéricas
+                $literal = ($tipoEval !== 'L') ? $this->calcularLiteral($notaFinal) : null;
 
                 $filaEst[$siglas] = [
                     'm1'        => $notas[1],
@@ -238,6 +290,8 @@ class EvaluacionController extends Controller
                     'm3'        => $notas[3],
                     'final'     => $notaFinal,
                     'resultado' => $resultado,
+                    'literal'   => $literal,
+                    'tipo_evaluacion' => $tipoEval,
                 ];
 
                 if ($notaFinal !== null) {
@@ -278,14 +332,29 @@ class EvaluacionController extends Controller
             'numero_momento'     => 'required|integer|in:1,2,3',
         ]);
 
-        $deleted = Evaluacion::where($data)->delete();
+        // Capturar antes de eliminar para auditoría
+        $evaluacion = Evaluacion::where($data)->first();
+
+        if (!$evaluacion) {
+            return response()->json(['message' => 'Evaluación no encontrada o no eliminada.'], 404);
+        }
+
+        $valoresAnteriores = $evaluacion->toArray();
+        $idRegistro = (string) $evaluacion->id_evaluacion;
+
+        $deleted = $evaluacion->delete();
 
         if ($deleted) {
+            self::registrarAuditoria('Evaluacion', $idRegistro, 'D', $valoresAnteriores, null);
             return response()->json(null, 204);
         }
 
         return response()->json(['message' => 'Evaluación no encontrada o no eliminada.'], 404);
     }
+
+    // ─────────────────────────────────────────────
+    //  MÉTODOS PRIVADOS DE CÁLCULO
+    // ─────────────────────────────────────────────
 
     private function obtenerNotasPorMomento(?iterable $evaluacionesMateria): array
     {
@@ -314,12 +383,72 @@ class EvaluacionController extends Controller
         return round(array_sum($validas) / count($validas), 2);
     }
 
-    private function determinarResultado(?float $notaFinal, float $notaMinima): string
+    /**
+     * RF-05: Verificar si existe al menos una evaluación marcada como revisión.
+     */
+    private function verificarRevision(?iterable $evaluacionesMateria): bool
+    {
+        if (!$evaluacionesMateria) {
+            return false;
+        }
+
+        foreach ($evaluacionesMateria as $eval) {
+            if ($eval->es_revision) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * RF-05: Determinar resultado académico con 4 estados posibles:
+     *  'P' — Pendiente (sin notas registradas)
+     *  'V' — En Revisión (hay revisión pendiente y nota < mínima)
+     *  'A' — Aprobado (nota >= nota mínima)
+     *  'R' — Reprobado (nota < nota mínima y sin revisión activa)
+     */
+    private function determinarResultado(?float $notaFinal, float $notaMinima, bool $tieneRevision = false): string
     {
         if ($notaFinal === null) {
             return 'P';
         }
 
-        return $notaFinal >= $notaMinima ? 'A' : 'R';
+        if ($notaFinal >= $notaMinima) {
+            return 'A';
+        }
+
+        // Nota por debajo del mínimo: verificar si hay revisión activa
+        if ($tieneRevision) {
+            return 'V'; // En Revisión
+        }
+
+        return 'R';
+    }
+
+    /**
+     * RF-04: Calcular literal A-E según escala de 20 puntos del TEG.
+     * Solo aplica para evaluaciones numéricas (tipo_evaluacion = 'N').
+     * Retorna null si la nota final es null.
+     *
+     * Escala:
+     *   A: 18 – 20
+     *   B: 15 – 17
+     *   C: 12 – 14
+     *   D: 10 – 11
+     *   E: 01 – 09
+     */
+    private function calcularLiteral(?float $notaFinal): ?string
+    {
+        if ($notaFinal === null) {
+            return null;
+        }
+
+        if ($notaFinal >= 18) return 'A';
+        if ($notaFinal >= 15) return 'B';
+        if ($notaFinal >= 12) return 'C';
+        if ($notaFinal >= 10) return 'D';
+
+        return 'E';
     }
 }

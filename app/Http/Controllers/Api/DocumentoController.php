@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\DocumentoEmitido;
+use App\Models\Estudiante;
+use App\Models\MateriaPendiente;
 use App\Services\PdfService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -94,6 +96,25 @@ class DocumentoController extends Controller
         return $this->pdf->resumenSeccion($seccion, $anio, $momento);
     }
 
+    /**
+     * RF-07 — Generar resumen de revisión / materias pendientes de un estudiante.
+     * GET /api/documentos/resumen-revision/{cedula}/{anio}
+     *
+     * Genera un PDF listando las materias pendientes (Materia_Pendiente) del
+     * estudiante en el año escolar de origen indicado. El folio lleva prefijo "REV-"
+     * para diferenciarlo de un resumen ordinario al listar documentos emitidos.
+     */
+    public function resumenRevision(Request $request, string $cedula, string $anio)
+    {
+        // Verificar que el estudiante existe
+        Estudiante::findOrFail($cedula);
+
+        // Registrar emisión con prefijo REV- en el folio para distinguirlo
+        $this->registrarEmisionRevision($cedula, $anio);
+
+        return $this->pdf->resumenRevision($cedula, $anio);
+    }
+
     /** Eliminar un documento emitido */
     public function destroy(int $id): JsonResponse
     {
@@ -122,6 +143,33 @@ class DocumentoController extends Controller
             ]);
         } catch (\Throwable $e) {
             \Log::warning("No se pudo registrar emisión de {$tipo}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * RF-07 — Registrar emisión del resumen de revisión con folio prefijado "REV-".
+     * Usa tipo_documento = 'resumen_final' (valor válido en el CHECK de la tabla)
+     * pero el folio lleva prefijo "REV-" para distinguirlo al listar documentos.
+     */
+    private function registrarEmisionRevision(string $cedula, string $anio): void
+    {
+        try {
+            // Generar folio con prefijo REV- para identificarlo como resumen de revisión
+            $folioBase = DocumentoEmitido::generarFolio('resumen_final');
+            $folioRev  = 'REV-' . $folioBase;
+
+            DocumentoEmitido::create([
+                'tipo_documento'     => 'resumen_final',
+                'cedula_estudiante'  => $cedula,
+                'codigo_ano_escolar' => $anio,
+                'numero_momento'     => null,
+                'folio'              => $folioRev,
+                'id_usuario_emisor'  => Auth::id(),
+                'fecha_emision'      => now(),
+                'contenido_pdf'      => \Illuminate\Support\Facades\DB::raw('0x'),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning("No se pudo registrar emisión de resumen_revision: " . $e->getMessage());
         }
     }
 

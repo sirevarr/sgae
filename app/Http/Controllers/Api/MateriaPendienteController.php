@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\MateriaPendiente;
 use App\Models\Estudiante;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,6 +15,8 @@ use Illuminate\Http\Request;
  */
 class MateriaPendienteController extends Controller
 {
+    use Auditable;
+
     /** GET /api/materias-pendientes?cedula_estudiante=... */
     public function index(Request $request): JsonResponse
     {
@@ -52,6 +55,15 @@ class MateriaPendienteController extends Controller
 
         $mp = MateriaPendiente::create($data);
 
+        // Auditoría: INSERT
+        self::registrarAuditoria(
+            'Materia_Pendiente',
+            (string) $mp->id_materia_pendiente,
+            'I',
+            null,
+            $mp->toArray()
+        );
+
         return response()->json([
             'success' => true,
             'message' => 'Materia pendiente registrada.',
@@ -70,7 +82,19 @@ class MateriaPendienteController extends Controller
             'nota_final'       => 'sometimes|nullable|numeric|min:0|max:20',
         ]);
 
+        // Capturar valores anteriores
+        $valoresAnteriores = $mp->toArray();
+
         $mp->update($data);
+
+        // Auditoría: UPDATE
+        self::registrarAuditoria(
+            'Materia_Pendiente',
+            (string) $mp->id_materia_pendiente,
+            'U',
+            $valoresAnteriores,
+            $mp->fresh()->toArray()
+        );
 
         return response()->json([
             'success' => true,
@@ -83,7 +107,18 @@ class MateriaPendienteController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $mp = MateriaPendiente::findOrFail($id);
+        $valoresAnteriores = $mp->toArray();
+
         $mp->delete();
+
+        // Auditoría: DELETE
+        self::registrarAuditoria(
+            'Materia_Pendiente',
+            (string) $id,
+            'D',
+            $valoresAnteriores,
+            null
+        );
 
         return response()->json(['success' => true, 'message' => 'Materia pendiente eliminada.']);
     }

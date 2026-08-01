@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\{
     AuditoriaController,
     InscripcionController,
     MateriaPendienteController,
+    RespaldoController,
 };
 
 /*
@@ -130,6 +131,10 @@ Route::middleware('auth')->group(function () use ($personalRoute, $usuarioRoute,
 
         Route::get('/auditoria',                      [AuditoriaController::class, 'index']);
         Route::get('/auditoria/logins',               [AuditoriaController::class, 'logins']);
+
+        // Punto 5 — Respaldo de base de datos (solo administrador)
+        Route::post('/respaldos',                     [RespaldoController::class, 'generar']);
+        Route::get('/respaldos',                      [RespaldoController::class, 'index']);
     });
 
     // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────
@@ -145,6 +150,10 @@ Route::middleware('auth')->group(function () use ($personalRoute, $usuarioRoute,
         Route::post('/anios-escolares',               [AnioEscolarController::class, 'store']);
         Route::put('/anios-escolares/{codigo}',       [AnioEscolarController::class, 'update']);
         Route::delete('/anios-escolares/{codigo}',    [AnioEscolarController::class, 'destroy']);
+
+        // Punto 6 — Copiar configuración del año anterior
+        Route::get('/anios-escolares/copiar-config/preview',  [AnioEscolarController::class, 'previsualizarCopia']);
+        Route::post('/anios-escolares/copiar-config',         [AnioEscolarController::class, 'copiarConfiguracion']);
 
         Route::post('/grados',                        [GradoController::class, 'store']);
         Route::put('/grados/{codigo}',                [GradoController::class, 'update']);
@@ -254,6 +263,11 @@ Route::middleware('auth')->group(function () use ($personalRoute, $usuarioRoute,
         Route::get('/documentos/lista-seccion/{seccion}/{anio}',      [DocumentoController::class, 'listaSeccion']);
         Route::get('/documentos/resumen-seccion/{seccion}/{anio}',    [DocumentoController::class, 'resumenSeccion']);
         Route::delete('/documentos/{id}',                              [DocumentoController::class, 'destroy']);
+
+        // RF-07 — Resumen de revisión (materias pendientes) — admin y control estudios
+        Route::middleware(['role:administrador,control_estudios'])->group(function () {
+            Route::get('/documentos/resumen-revision/{cedula}/{anio}', [DocumentoController::class, 'resumenRevision']);
+        });
 
         // Inscripciones
         Route::get('/inscripciones',                  [InscripcionController::class, 'index']);

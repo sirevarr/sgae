@@ -48,6 +48,17 @@ const pendienteForm     = reactive({
     fecha_resolucion: '',
 });
 const savingPend = ref(false);
+const showEquivalencias = ref(false);
+
+async function eliminarPendiente(p) {
+    if (!confirm(`¿Eliminar la materia pendiente "${p.materia?.nombre ?? p.siglas_materia}"?`)) return;
+    try {
+        await axios.delete(`/api/materias-pendientes/${p.id_materia_pendiente}`);
+        pendientesData.value = pendientesData.value.filter(x => x.id_materia_pendiente !== p.id_materia_pendiente);
+    } catch(e) {
+        alert('Error: ' + (e.response?.data?.message ?? e.message));
+    }
+}
 
 async function abrirPendientes(mat) {
     pendienteEst.value = mat;
@@ -239,10 +250,15 @@ onMounted(cargarCatalogos);
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
                     <label for="filtro-anio" class="lbl">Año Escolar</label>
-                    <select id="filtro-anio" v-model="filtro.codigo_ano_escolar" @change="cargarSecciones" class="inp mt-1">
-                        <option value="">Seleccionar...</option>
-                        <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">{{ a.codigo_ano_escolar }}</option>
-                    </select>
+                    <div class="flex gap-3">
+                        <button @click="showEquivalencias = true" class="btn-secondary text-[12px] flex items-center gap-1.5 px-3 py-1.5">
+                            ℹ️ Escala Literales (MPPE)
+                        </button>
+                        <select v-model="filtro.codigo_ano_escolar" @change="cargarSecciones" class="inp-filter">
+                            <option value="">— Seleccionar Año —</option>
+                            <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">{{ a.codigo_ano_escolar }}</option>
+                        </select>
+                    </div>
                 </div>
                 <div>
                     <label for="filtro-seccion" class="lbl">Sección</label>
@@ -451,16 +467,88 @@ onMounted(cargarCatalogos);
                                         </span>
                                     </td>
                                     <td class="td text-center text-[12.5px]">{{ p.nota_final ?? '—' }}</td>
-                                    <td class="td">
-                                        <button v-if="p.estado === 'pendiente'"
-                                            @click="actualizarEstadoPendiente(p, 'aprobada')"
-                                            class="text-[12px] px-2 py-1 bg-[#E6EEE0] text-ok border border-ok/30 rounded-[4px] hover:bg-[#d4e8d0] transition-colors">
-                                            Aprobar
+                                    <td class="td flex gap-1 items-center">
+                                        <select :value="p.estado" @change="e => actualizarEstadoPendiente(p, e.target.value)"
+                                            class="text-[11px] border border-borde rounded px-1.5 py-1 bg-paper text-tinta font-semibold focus:outline-none">
+                                            <option value="pendiente">Pendiente</option>
+                                            <option value="aprobada">Aprobada</option>
+                                            <option value="no_aprobada">No aprobada</option>
+                                        </select>
+                                        <button @click="eliminarPendiente(p)" title="Eliminar/Deshacer materia pendiente"
+                                            class="text-[11px] px-2 py-1 text-rojo hover:text-rojo-dark hover:bg-[#F4DEDA] rounded transition-colors font-semibold ml-1">
+                                            🗑️ Deshacer
                                         </button>
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- MODAL: Escala de Equivalencias MPPE -->
+        <Teleport to="body">
+            <div v-if="showEquivalencias" class="fixed inset-0 bg-tinta/60 z-50 flex items-center justify-center p-4">
+                <div class="bg-paper border border-borde rounded-[6px] shadow-xl w-full max-w-lg">
+                    <div class="px-6 py-4 border-b border-borde flex justify-between items-center bg-crema/40">
+                        <h2 class="font-serif font-semibold text-tinta text-[16px]">ℹ️ Escala de Equivalencias de Evaluación (MPPE)</h2>
+                        <button @click="showEquivalencias=false" class="text-piedra hover:text-tinta text-lg leading-none">&times;</button>
+                    </div>
+                    <div class="p-5 space-y-4">
+                        <p class="text-[12px] text-piedra">
+                            Correspondencia oficial entre la escala cualitativa por competencias (Literales A-E) y la escala cuantitativa (01 a 20 puntos):
+                        </p>
+                        <div class="border border-borde rounded-[4px] overflow-hidden">
+                            <table class="w-full text-[12px]">
+                                <thead>
+                                    <tr class="bg-crema border-b border-borde text-tinta-soft text-[11px] font-semibold uppercase">
+                                        <th class="px-3 py-2 text-center">Literal</th>
+                                        <th class="px-3 py-2 text-center">Puntos (0-20)</th>
+                                        <th class="px-3 py-2 text-left">Interpretación MPPE</th>
+                                        <th class="px-3 py-2 text-center">Estatus</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-borde">
+                                    <tr class="hover:bg-crema/30">
+                                        <td class="px-3 py-2 text-center font-bold text-ok text-[14px]">A</td>
+                                        <td class="px-3 py-2 text-center font-mono font-semibold">18 – 20</td>
+                                        <td class="px-3 py-2 text-tinta">Excelente / Superó expectativas</td>
+                                        <td class="px-3 py-2 text-center"><span class="badge badge-ok">Aprobado</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-crema/30">
+                                        <td class="px-3 py-2 text-center font-bold text-[#2e7d32] text-[14px]">B</td>
+                                        <td class="px-3 py-2 text-center font-mono font-semibold">15 – 17</td>
+                                        <td class="px-3 py-2 text-tinta">Muy Bueno / Alcanzó competencias</td>
+                                        <td class="px-3 py-2 text-center"><span class="badge badge-ok">Aprobado</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-crema/30">
+                                        <td class="px-3 py-2 text-center font-bold text-[#f57f17] text-[14px]">C</td>
+                                        <td class="px-3 py-2 text-center font-mono font-semibold">12 – 14</td>
+                                        <td class="px-3 py-2 text-tinta">Aprobado / Competencias mínimas</td>
+                                        <td class="px-3 py-2 text-center"><span class="badge badge-ok">Aprobado</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-crema/30">
+                                        <td class="px-3 py-2 text-center font-bold text-[#e65100] text-[14px]">D</td>
+                                        <td class="px-3 py-2 text-center font-mono font-semibold">10 – 11</td>
+                                        <td class="px-3 py-2 text-tinta">En Proceso / Nivelación requerida</td>
+                                        <td class="px-3 py-2 text-center"><span class="badge badge-alerta">Aprobado*</span></td>
+                                    </tr>
+                                    <tr class="hover:bg-crema/30">
+                                        <td class="px-3 py-2 text-center font-bold text-rojo-dark text-[14px]">E</td>
+                                        <td class="px-3 py-2 text-center font-mono font-semibold">01 – 09</td>
+                                        <td class="px-3 py-2 text-tinta">Aplazado / No logró competencias</td>
+                                        <td class="px-3 py-2 text-center"><span class="badge bg-[#F4DEDA] text-rojo-dark">Reprobado</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-[11px] text-piedra-soft italic">
+                            * Nota: En educación media, las notas mayores o iguales a 10 puntos son aprobatorias.
+                        </p>
+                    </div>
+                    <div class="px-6 py-3 border-t border-borde flex justify-end bg-crema/20">
+                        <button @click="showEquivalencias=false" class="btn-primary text-[12px] px-4 py-1.5">Entendido</button>
                     </div>
                 </div>
             </div>

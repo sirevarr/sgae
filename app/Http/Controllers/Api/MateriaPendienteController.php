@@ -53,6 +53,17 @@ class MateriaPendienteController extends Controller
             'nota_final'               => 'nullable|numeric|min:0|max:20',
         ]);
 
+        $existente = MateriaPendiente::where('cedula_estudiante', $data['cedula_estudiante'])
+            ->where('siglas_materia', $data['siglas_materia'])
+            ->where('codigo_ano_escolar_origen', $data['codigo_ano_escolar_origen'])
+            ->first();
+
+        if ($existente) {
+            return response()->json([
+                'message' => "La materia '{$data['siglas_materia']}' ya está registrada como pendiente para este estudiante en el año escolar origen {$data['codigo_ano_escolar_origen']}.",
+            ], 422);
+        }
+
         $mp = MateriaPendiente::create($data);
 
         // Auditoría: INSERT

@@ -341,8 +341,18 @@
             // Tipo de evaluación: L = literal (1=A,0=R), N = numérica
             $tipoEval = $pe->tipo_evaluacion ?? 'N';
             if ($tipoEval === 'L') {
-                $resultado = $def !== null ? ($def == 1 ? 'A' : 'R') : '—';
-                $literal   = null; // RF-04: no aplica literal A-E a evaluaciones literales
+                if ($def === null) {
+                    $resultado = '—';
+                    $literal   = '—';
+                } else {
+                    $resultado = ($def >= $nota_minima || $def == 1) ? 'A' : ($esRevision ? 'V' : 'R');
+                    if ($def >= 18)      $literal = 'A';
+                    elseif ($def >= 15)  $literal = 'B';
+                    elseif ($def >= 12)  $literal = 'C';
+                    elseif ($def >= 10)  $literal = 'D';
+                    elseif ($def == 1)   $literal = 'A';
+                    else                 $literal = 'E';
+                }
             } else {
                 if ($def === null) {
                     $resultado = '—';

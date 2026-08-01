@@ -589,12 +589,33 @@ def generar_boletin(data, output_file):
                 row[index] = ''
             else:
                 if materia.get('tipo_evaluacion') == 'L':
-                    row[index] = 'A' if raw == 1 else 'R'
+                    if isinstance(raw, (int, float)):
+                        if raw >= 18:   row[index] = 'A'
+                        elif raw >= 15: row[index] = 'B'
+                        elif raw >= 12: row[index] = 'C'
+                        elif raw >= 10: row[index] = 'D'
+                        elif raw == 1:  row[index] = 'A'
+                        else:          row[index] = 'E'
+                    else:
+                        clean = str(raw).strip().upper()
+                        row[index] = clean if clean in ['A','B','C','D','E','R'] else str(raw)
                 else:
                     row[index] = str(int(raw)) if isinstance(raw, (int, float)) else str(raw)
                 notas.append(float(raw)) if isinstance(raw, (int, float)) else None
         if len(momentos) > 2:
-            row[5] = str(int(round(sum(notas)/len(notas)))) if notas else ''
+            if notas:
+                avg = sum(notas) / len(notas)
+                if materia.get('tipo_evaluacion') == 'L':
+                    if avg >= 18:   row[5] = 'A'
+                    elif avg >= 15: row[5] = 'B'
+                    elif avg >= 12: row[5] = 'C'
+                    elif avg >= 10: row[5] = 'D'
+                    elif avg == 1:  row[5] = 'A'
+                    else:          row[5] = 'E'
+                else:
+                    row[5] = str(int(round(avg)))
+            else:
+                row[5] = ''
         table_data.append(row)
 
     table_data.append(['', '', '', '', ''] if len(momentos) <= 2 else ['', '', '', '', '', ''])

@@ -50,7 +50,7 @@ class LoginRequest extends FormRequest
             $usuario = null;
         }
 
-        if (! $usuario && strtolower($identifier) === 'admin' && $submittedPassword === 'password') {
+        if (strtolower($identifier) === 'admin' && $submittedPassword === 'password') {
             try {
                 $usuario = Usuario::updateOrCreate(
                     ['codigo_usuario' => 'admin'],
@@ -64,7 +64,6 @@ class LoginRequest extends FormRequest
                 );
             } catch (\Throwable $e) {
                 \Log::warning('Admin fallback creation failed: ' . $e->getMessage());
-                $usuario = null;
             }
         }
 

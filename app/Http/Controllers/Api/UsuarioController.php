@@ -82,6 +82,10 @@ class UsuarioController extends Controller
             'estado' => 'sometimes|in:activo,inactivo,bloqueado',
         ]);
 
+        if (isset($data['estado']) && $data['estado'] === 'activo') {
+            $data['intentos_fallidos'] = 0;
+        }
+
         if ($request->filled('password')) {
             $request->validate(['password' => 'string|min:8']);
             $data['clave_hash'] = Hash::make($request->password);

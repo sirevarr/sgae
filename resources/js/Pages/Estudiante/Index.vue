@@ -150,7 +150,9 @@ function abrirNuevo() {
 function abrirEditar(est) {
     if (!canManageRecords.value) return;
     editando.value = true;
-    Object.assign(form, { ...est });
+    const payload = { ...est };
+    if (payload.fecha_nacimiento) payload.fecha_nacimiento = String(payload.fecha_nacimiento).substring(0, 10);
+    Object.assign(form, payload);
     errors.value = {};
     modal.value  = true;
 }

@@ -86,7 +86,9 @@ function abrirNuevo() {
 function abrirEditar(m) {
     viewing.value = false;
     editando.value = true;
-    Object.assign(form, { ...m, cedula_representante: m.cedula_representante ?? '', id_matricula: m.id_matricula });
+    const payload = { ...m, cedula_representante: m.cedula_representante ?? '', id_matricula: m.id_matricula };
+    if (payload.fecha_matricula) payload.fecha_matricula = String(payload.fecha_matricula).substring(0, 10);
+    Object.assign(form, payload);
     errors.value = {};
     cargarSecciones();
     modal.value = true;
@@ -95,7 +97,9 @@ function abrirEditar(m) {
 function ver(m) {
     viewing.value = true;
     editando.value = false;
-    Object.assign(form, { ...m, cedula_representante: m.cedula_representante ?? '', id_matricula: m.id_matricula });
+    const payload = { ...m, cedula_representante: m.cedula_representante ?? '', id_matricula: m.id_matricula };
+    if (payload.fecha_matricula) payload.fecha_matricula = String(payload.fecha_matricula).substring(0, 10);
+    Object.assign(form, payload);
     errors.value = {};
     cargarSecciones();
     modal.value = true;

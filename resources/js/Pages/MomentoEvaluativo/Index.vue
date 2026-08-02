@@ -41,15 +41,18 @@ async function cargarAnios() {
 function abrir(item = null) {
     editando.value = !!item;
     viewing.value = false;
-    Object.assign(form, item ?? {
+    const payload = item ? { ...item } : {
         numero_momento: 1,
         codigo_ano_escolar: filtroAnio.value || '',
         nombre: '',
         fecha_inicio: '',
         fecha_fin: '',
         porcentaje: '',
-        estado: 'por_iniciar'
-    });
+        estado: 'programado',
+    };
+    if (payload.fecha_inicio) payload.fecha_inicio = String(payload.fecha_inicio).substring(0, 10);
+    if (payload.fecha_fin) payload.fecha_fin = String(payload.fecha_fin).substring(0, 10);
+    Object.assign(form, payload);
     errors.value = {};
     modal.value = true;
 }

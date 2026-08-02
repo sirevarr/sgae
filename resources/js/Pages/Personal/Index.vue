@@ -28,11 +28,18 @@ async function cargar() {
 
 function abrir(item = null) {
     editando.value = !!item;
-    Object.assign(form, item ?? {
+    const payload = item ? { ...item } : {
         cedula_personal: '', nombres: '', apellidos: '', cargo: '',
         telefono: '', correo: '', genero: '', fecha_nacimiento: '', fecha_ingreso: '',
         estado: 'activo', observaciones: '', especialidad: '', turno: ''
-    });
+    };
+    if (payload.fecha_nacimiento) payload.fecha_nacimiento = String(payload.fecha_nacimiento).substring(0, 10);
+    if (payload.fecha_ingreso) payload.fecha_ingreso = String(payload.fecha_ingreso).substring(0, 10);
+    if (item?.docente) {
+        payload.especialidad = item.docente.especialidad;
+        payload.turno = item.docente.turno;
+    }
+    Object.assign(form, payload);
     errors.value = {};
     modal.value  = true;
 }

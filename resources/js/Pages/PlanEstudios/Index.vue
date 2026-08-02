@@ -90,7 +90,7 @@ onMounted(async () => { await cargarCatalogos(); cargar(); });
                     <p class="text-[11px] text-piedra mt-0.5">Materias por grado, mención y año escolar</p>
                 </div>
                 <button v-if="canManageRecords" @click="abrir()" class="btn-primary">Agregar Materia</button>
-                <button v-else @click="(function(){ viewing.value=true; modal.value=true; })()" class="btn-primary">Ver</button>
+                <button v-else @click="viewing = true; modal = true" class="btn-primary">Ver</button>
             </div>
         </template>
 
@@ -170,7 +170,7 @@ onMounted(async () => { await cargarCatalogos(); cargar(); });
                             <div class="flex justify-center gap-2">
                                 <button v-if="canManageRecords" @click="abrir(pe)" class="btn-table-action">Editar</button>
                                 <button v-if="canManageRecords" @click="eliminar(pe)" class="btn-table-action text-rojo hover:text-rojo-dark">Quitar</button>
-                                <button v-else @click="(function(){ viewing.value=true; editando.value=false; Object.assign(form, pe); modal.value=true; })()" class="btn-table-action">Ver</button>
+                                <button v-else @click="viewing = true; editando = false; Object.assign(form, pe); modal = true" class="btn-table-action">Ver</button>
                             </div>
                         </td>
                     </tr>

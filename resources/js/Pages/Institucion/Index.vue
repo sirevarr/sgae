@@ -65,10 +65,10 @@ onMounted(cargar);
                     <h1 class="font-serif font-semibold text-[20px] text-tinta leading-tight">Datos de la Institución</h1>
                     <p class="text-[11px] text-piedra mt-0.5">Información que aparece en los documentos y boletines</p>
                 </div>
-                <button v-if="canManageRecords" @click="(function(){ viewing.value=false; abrir(); })()" class="btn-primary">
+                <button v-if="canManageRecords" @click="viewing = false; abrir()" class="btn-primary">
                     {{ inst ? 'Editar' : 'Configurar' }}
                 </button>
-                <button v-else @click="(function(){ viewing.value=true; Object.assign(form, inst ? { ...inst } : {}); modal.value=true; })()" class="btn-primary">
+                <button v-else @click="viewing = true; Object.assign(form, inst ? { ...inst } : {}); modal = true" class="btn-primary">
                     Ver
                 </button>
             </div>

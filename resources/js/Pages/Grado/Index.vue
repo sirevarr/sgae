@@ -105,7 +105,7 @@ onMounted(cargar);
                     <div class="flex gap-2">
                         <button v-if="canManageRecords" @click="abrir(g)" class="btn-table-action">Editar</button>
                         <button v-if="canManageRecords" @click="eliminar(g)" class="btn-table-action text-rojo hover:text-rojo-dark">Eliminar</button>
-                        <button v-else @click="(function(){ viewing.value = true; editando.value = false; Object.assign(form, g); modal.value = true; })()" class="btn-table-action">Ver</button>
+                        <button v-else @click="viewing = true; editando = false; Object.assign(form, g); modal = true" class="btn-table-action">Ver</button>
                     </div>
                 </div>
             </div>

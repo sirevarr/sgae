@@ -523,19 +523,20 @@ class DemoDataSeeder extends Seeder
     {
         $numLista = [];
         foreach ($estudiantes as $ced => $data) {
+            $cedStr = (string)$ced; // FORZAR STRING por culpa del auto-cast de keys de PHP
             $seccion = $data['seccion'];
             $numLista[$seccion] = ($numLista[$seccion] ?? 0) + 1;
 
             $estadoMatricula = $data['model']->estado_estudiante === 'retirado' ? 'retirada' : 'activa';
 
             Matricula::updateOrCreate(
-                ['cedula_estudiante' => $ced, 'codigo_ano_escolar' => self::ANIO_VIGENTE],
+                ['cedula_estudiante' => $cedStr, 'codigo_ano_escolar' => self::ANIO_VIGENTE],
                 [
                     'codigo_seccion' => $seccion, 'cedula_representante' => $data['representante'],
                     'fecha_matricula' => '2025-09-10', 'numero_lista' => $numLista[$seccion],
                     'condicion_ingreso' => 'Regular', 'procedencia' => 'U.E.E. Nelson Mandela',
                     'ano_inicio_cursante' => 2025, 'estado_matricula' => $estadoMatricula,
-                    'observaciones' => $ced === '30123123' ? 'Ver fecha y motivo de retiro en ficha del estudiante.' : null,
+                    'observaciones' => $cedStr === '30123123' ? 'Ver fecha y motivo de retiro en ficha del estudiante.' : null,
                     'fecha_retiro' => $data['model']->fecha_retiro,
                     'motivo_retiro' => $data['model']->motivo_retiro,
                 ]
@@ -629,8 +630,9 @@ class DemoDataSeeder extends Seeder
 
         // Caso 5: Educación Física (tipo Literal) — Diego y María Fernanda
         foreach (['E1234567' => 1, '30888888' => 1] as $ced => $val) {
+            $cedStr = (string)$ced;
             Evaluacion::updateOrCreate(
-                ['cedula_estudiante' => $ced, 'siglas_materia' => 'EDF', 'id_mencion' => $ciencias->id_mencion,
+                ['cedula_estudiante' => $cedStr, 'siglas_materia' => 'EDF', 'id_mencion' => $ciencias->id_mencion,
                  'codigo_grado' => '5TO', 'codigo_ano_escolar' => self::ANIO_VIGENTE, 'numero_momento' => 1],
                 ['nota' => $val, 'fecha_evaluacion' => '2025-11-25', 'cedula_docente_evaluador' => 15111111]
             );
@@ -677,8 +679,9 @@ class DemoDataSeeder extends Seeder
 
     private function documentosEmitidos($usuarios): void
     {
-        // contenido_pdf es VARBINARY(MAX) NOT NULL — se inserta un binario de ejemplo
-        $pdfPlaceholder = hex2bin('255044462D312E300A'); // Bytes mínimos de cabecera PDF "%PDF-1.0\n"
+        // contenido_pdf es VARBINARY(MAX) NOT NULL. 
+        // Usamos DB::raw y CONVERT porque PDO SQLSRV falla al bindear binarios puros por defecto.
+        $pdfPlaceholder = \Illuminate\Support\Facades\DB::raw("CONVERT(varbinary(max), '255044462D312E300A', 2)"); // "%PDF-1.0\n"
 
         $docs = [
             ['boletin',           '30111111',  1,    'BOL-2025-0001', 20],

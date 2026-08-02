@@ -142,7 +142,7 @@ onMounted(cargar);
                         <div><label class="lbl">Teléfono</label><input v-model="form.telefono" type="text" class="inp" /></div>
                         <div><label class="lbl">Correo</label><input v-model="form.correo" type="email" class="inp" /></div>
                         <div><label class="lbl">Especialidad (Docente)</label><input v-model="form.especialidad" type="text" class="inp" /></div>
-                        <div><label class="lbl">Turno</label><select v-model="form.turno" class="inp"><option value="">—</option><option value="mañana">Mañana</option><option value="tarde">Tarde</option><option value="nocturno">Nocturno</option></select></div>
+                        <div><label class="lbl">Turno</label><select v-model="form.turno" class="inp"><option value="">—</option><option value="M">Mañana</option><option value="T">Tarde</option><option value="N">Nocturno</option></select></div>
                         <div><label class="lbl">F. Ingreso</label><input v-model="form.fecha_ingreso" type="date" class="inp" /></div>
                         <div><label class="lbl">Estado</label><select v-model="form.estado" class="inp"><option value="activo">Activo</option><option value="inactivo">Inactivo</option><option value="jubilado">Jubilado</option></select></div>
                         <div class="col-span-2"><label class="lbl">Observaciones</label><textarea v-model="form.observaciones" rows="2" class="inp"></textarea></div>

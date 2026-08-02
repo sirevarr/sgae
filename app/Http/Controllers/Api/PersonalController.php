@@ -67,7 +67,7 @@ class PersonalController extends Controller
             'estado'           => 'nullable|string|max:20',
             'observaciones'    => 'nullable|string',
             'especialidad'     => 'nullable|string|max:80',
-            'turno'            => 'nullable|string|max:30',
+            'turno'            => 'nullable|string|max:1',
         ]);
 
         if (! Personal::tableExists()) {
@@ -111,7 +111,7 @@ class PersonalController extends Controller
             'observaciones'    => 'sometimes|nullable|string',
             // Docente
             'especialidad'     => 'sometimes|nullable|string|max:80',
-            'turno'            => 'sometimes|nullable|string|max:30',
+            'turno'            => 'sometimes|nullable|string|max:1',
         ]);
 
         $personal->update($data);

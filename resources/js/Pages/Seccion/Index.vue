@@ -31,7 +31,7 @@ const form = reactive({
     codigo_seccion:    '', letra: '', codigo_grado: '',
     codigo_ano_escolar: '', id_mencion: '',
     cedula_docente_guia: '', capacidad_maxima: 35,
-    turno: 'mañana', aula_asignada: '',
+    turno: 'M', aula_asignada: '',
 });
 
 // ── Modal de asignaciones ─────────────────────────────────────
@@ -80,7 +80,7 @@ function abrir(item = null) {
         codigo_seccion: '', letra: '', codigo_grado: '',
         codigo_ano_escolar: filtroAnio.value || '',
         id_mencion: '', cedula_docente_guia: '',
-        capacidad_maxima: 35, turno: 'mañana', aula_asignada: '',
+        capacidad_maxima: 35, turno: 'M', aula_asignada: '',
     });
     errors.value = {};
     modal.value = true;
@@ -93,7 +93,7 @@ function ver(item) {
         codigo_seccion: '', letra: '', codigo_grado: '',
         codigo_ano_escolar: filtroAnio.value || '',
         id_mencion: '', cedula_docente_guia: '',
-        capacidad_maxima: 35, turno: 'mañana', aula_asignada: '',
+        capacidad_maxima: 35, turno: 'M', aula_asignada: '',
     });
     errors.value = {};
     modal.value = true;
@@ -319,9 +319,9 @@ onMounted(async () => { await cargarCatalogos(); cargar(); });
                         <div>
                             <label class="lbl">Turno *</label>
                             <select v-model="form.turno" class="inp">
-                                <option value="mañana">Mañana</option>
-                                <option value="tarde">Tarde</option>
-                                <option value="nocturno">Nocturno</option>
+                                <option value="M">Mañana</option>
+                                <option value="T">Tarde</option>
+                                <option value="N">Nocturno</option>
                             </select>
                         </div>
                         <div class="col-span-2">

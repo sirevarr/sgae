@@ -43,7 +43,7 @@ class SeccionController extends Controller
             'id_mencion'          => 'nullable|integer|exists:Mencion,id_mencion',
             'cedula_docente_guia' => 'nullable|integer|exists:Docente,cedula_personal',
             'capacidad_maxima'    => 'required|integer|min:1|max:60',
-            'turno'               => 'required|string|max:30',
+            'turno'               => 'required|string|max:1',
             'aula_asignada'       => 'nullable|string|max:40',
         ]);
 
@@ -60,7 +60,7 @@ class SeccionController extends Controller
             'id_mencion'          => 'sometimes|nullable|integer|exists:Mencion,id_mencion',
             'cedula_docente_guia' => 'sometimes|nullable|integer|exists:Docente,cedula_personal',
             'capacidad_maxima'    => 'sometimes|integer|min:1|max:60',
-            'turno'               => 'sometimes|string|max:30',
+            'turno'               => 'sometimes|string|max:1',
             'aula_asignada'       => 'sometimes|nullable|string|max:40',
         ]);
         $seccion->update($data);

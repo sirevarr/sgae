@@ -1,16 +1,8 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Models\AnioEscolar;
-use App\Models\Matricula;
-use App\Models\ParametroSistema;
-use App\Models\Evaluacion;
-use App\Models\Personal;
-use App\Models\Seccion;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,20 +13,6 @@ use App\Models\Seccion;
 
 Route::get('/', function () {
     return redirect()->route('login');
-});
-
-Route::get('/debug-pdo', function () {
-    return response()->json([
-        'php_binary' => PHP_BINARY,
-        'php_ini' => php_ini_loaded_file(),
-        'pdo_sqlsrv_loaded' => extension_loaded('pdo_sqlsrv'),
-        'gd_loaded' => extension_loaded('gd'),
-        'fileinfo_loaded' => extension_loaded('fileinfo'),
-        'pdo_drivers' => PDO::getAvailableDrivers(),
-        'db_connection' => config('database.default'),
-        'db_host' => env('DB_HOST'),
-        'db_port' => env('DB_PORT'),
-    ]);
 });
 
 // Registro accesible para invitados
@@ -84,9 +62,7 @@ Route::middleware(['auth'])->group(function () use ($profileRoute) {
         Route::get('/momentos',      fn() => Inertia::render('MomentoEvaluativo/Index'))->name('momentos.index');
     });
 
-    // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────
-    Route::middleware(['role:administrador,control_estudios'])->group(function () {
-    });
+
 
     // ── PERFIL DE USUARIO ──────────────────────────────────────────────
     Route::get($profileRoute,    [ProfileController::class, 'edit'])->name('profile.edit');

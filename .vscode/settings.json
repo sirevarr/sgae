@@ -1,0 +1,6 @@
+{
+    "sonarlint.connectedMode.project": {
+        "connectionId": "My SonarQube Cloud Connection",
+        "projectKey": "sirevarr_sgae"
+    }
+}

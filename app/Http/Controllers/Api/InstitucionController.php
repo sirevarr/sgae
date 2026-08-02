@@ -44,11 +44,11 @@ class InstitucionController extends Controller
 
         $data = $request->validate([
             'nombre'                 => 'sometimes|string|max:150',
-            'direccion'              => 'sometimes|string|max:200',
-            'telefono'               => 'sometimes|string|max:20',
-            'municipio'              => 'sometimes|string|max:80',
-            'estado'                 => 'sometimes|string|max:80',
-            'zona_educativa'         => 'sometimes|string|max:80',
+            'direccion'              => 'sometimes|nullable|string|max:200',
+            'telefono'               => 'sometimes|nullable|string|max:20',
+            'municipio'              => 'sometimes|nullable|string|max:80',
+            'estado'                 => 'sometimes|nullable|string|max:80',
+            'zona_educativa'         => 'sometimes|nullable|string|max:80',
             'director_actual'        => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
             'coordinador_academico'  => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
         ]);

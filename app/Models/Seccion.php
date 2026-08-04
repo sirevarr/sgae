@@ -30,6 +30,11 @@ class Seccion extends Model
         'cedula_docente_guia' => 'integer',
     ];
 
+    protected $appends = [
+        'total_estudiantes',
+        'cupos_disponibles',
+    ];
+
     public function grado()
     {
         return $this->belongsTo(Grado::class, 'codigo_grado', 'codigo_grado');

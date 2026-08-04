@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Representante;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class RepresentanteController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         $q = $this->buildQuery($request)
@@ -44,7 +47,9 @@ class RepresentanteController extends Controller
             return response()->json(['message' => 'La cédula del representante ya existe.'], 422);
         }
 
-        return response()->json(Representante::create($data), 201);
+        $rep = Representante::create($data);
+        self::registrarAuditoria('Representante', (string) $rep->cedula_representante, 'I', null, $rep->toArray());
+        return response()->json($rep, 201);
     }
 
     public function update(Request $request, int $cedula): JsonResponse
@@ -60,7 +65,9 @@ class RepresentanteController extends Controller
             'correo'                 => 'sometimes|nullable|email|max:120',
             'es_representante_legal' => 'sometimes|boolean',
         ]);
+        $valoresAnteriores = $rep->toArray();
         $rep->update($data);
+        self::registrarAuditoria('Representante', (string) $cedula, 'U', $valoresAnteriores, $rep->fresh()->toArray());
 
         return response()->json($rep->fresh());
     }
@@ -68,8 +75,10 @@ class RepresentanteController extends Controller
     public function destroy(int $cedula): JsonResponse
     {
         $rep = Representante::findOrFail($cedula);
+        $valoresAnteriores = $rep->toArray();
         try {
             $rep->delete();
+            self::registrarAuditoria('Representante', (string) $cedula, 'D', $valoresAnteriores, null);
             return response()->json(null, 204);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['error' => 'No se puede eliminar el representante porque tiene registros relacionados.'], 409);

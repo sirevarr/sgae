@@ -169,7 +169,9 @@ class PdfService
 
         $plan = PlanEstudios::with('materia')
             ->where('codigo_grado', $seccion->codigo_grado)
-            ->where('id_mencion', $seccion->id_mencion)
+            ->when($seccion->id_mencion, function ($q) use ($seccion) {
+                $q->where('id_mencion', $seccion->id_mencion);
+            })
             ->where('codigo_ano_escolar', $codigo_ano_escolar)
             ->get();
 
@@ -413,7 +415,9 @@ class PdfService
 
         $materias = PlanEstudios::with('materia')
             ->where('codigo_grado', $seccion->codigo_grado)
-            ->where('id_mencion', $seccion->id_mencion)
+            ->when($seccion->id_mencion, function ($q) use ($seccion) {
+                $q->where('id_mencion', $seccion->id_mencion);
+            })
             ->where('codigo_ano_escolar', $codigo_ano_escolar)
             ->get()
             ->map(fn($pe) => (object)[

@@ -168,6 +168,7 @@ class EvaluacionController extends Controller
             'notas.*.codigo_ano_escolar' => 'required|string',
             'notas.*.numero_momento'    => 'required|integer|in:1,2,3',
             'notas.*.nota'              => 'required|numeric|min:0|max:20',
+            'notas.*.es_revision'       => 'sometimes|boolean',
         ]);
 
         $momentosSolicitados = collect($request->notas)
@@ -201,6 +202,16 @@ class EvaluacionController extends Controller
                 $esNueva = !$existente;
                 $valoresAnteriores = $existente ? $existente->toArray() : null;
 
+                // Detectar si realmente hubo un cambio antes de hacer update
+                $notaNueva    = (float) $item['nota'];
+                $revNueva     = (bool) ($item['es_revision'] ?? false);
+                $huboCambio   = $esNueva;
+
+                if (!$esNueva) {
+                    $huboCambio = ((float) $existente->nota !== $notaNueva)
+                               || ((bool)  $existente->es_revision !== $revNueva);
+                }
+
                 $evaluacion = Evaluacion::updateOrCreate(
                     [
                         'cedula_estudiante'  => $item['cedula_estudiante'],
@@ -211,19 +222,22 @@ class EvaluacionController extends Controller
                         'numero_momento'     => $item['numero_momento'],
                     ],
                     [
-                        'nota'             => $item['nota'],
+                        'nota'             => $notaNueva,
+                        'es_revision'      => $revNueva,
                         'fecha_evaluacion' => now()->toDateString(),
                     ]
                 );
 
-                // Auditoría por cada nota guardada en lote
-                self::registrarAuditoria(
-                    'Evaluacion',
-                    (string) $evaluacion->id_evaluacion,
-                    $esNueva ? 'I' : 'U',
-                    $valoresAnteriores,
-                    $evaluacion->fresh()->toArray()
-                );
+                // Solo auditar si realmente hubo un cambio (nota o revisión)
+                if ($huboCambio) {
+                    self::registrarAuditoria(
+                        'Evaluacion',
+                        (string) $evaluacion->id_evaluacion,
+                        $esNueva ? 'I' : 'U',
+                        $valoresAnteriores,
+                        $evaluacion->fresh()->toArray()
+                    );
+                }
             }
         });
 

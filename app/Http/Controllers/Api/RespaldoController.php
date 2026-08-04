@@ -81,4 +81,19 @@ class RespaldoController extends Controller
             ]);
         }
     }
+
+    /**
+     * GET /api/respaldos/{archivo}
+     * Descarga el archivo de respaldo físico.
+     */
+    public function descargar(string $archivo)
+    {
+        $path = 'respaldos/' . $archivo;
+        
+        if (!Storage::disk('local')->exists($path)) {
+            abort(404, 'El archivo de respaldo no existe.');
+        }
+
+        return Storage::disk('local')->download($path);
+    }
 }

@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\MomentoEvaluativo;
 use App\Models\AnioEscolar;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class MomentoEvaluativoController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         $q = MomentoEvaluativo::with('anioEscolar')
@@ -47,7 +50,11 @@ class MomentoEvaluativoController extends Controller
             $this->desactivarMomentosActivos($data['codigo_ano_escolar']);
         }
 
-        return response()->json(MomentoEvaluativo::create($data), 201);
+        $momento = MomentoEvaluativo::create($data);
+        $idStr = $momento->codigo_ano_escolar . '-M' . $momento->numero_momento;
+        self::registrarAuditoria('Momento_Evaluativo', $idStr, 'I', null, $momento->toArray());
+        
+        return response()->json($momento, 201);
     }
 
     public function update(Request $request): JsonResponse
@@ -66,10 +73,22 @@ class MomentoEvaluativoController extends Controller
             $this->desactivarMomentosActivos($data['codigo_ano_escolar'], $data['numero_momento']);
         }
 
+        $momento = MomentoEvaluativo::where([
+            'numero_momento'     => $data['numero_momento'],
+            'codigo_ano_escolar' => $data['codigo_ano_escolar'],
+        ])->first();
+        
+        $valoresAnteriores = $momento ? $momento->toArray() : [];
+
         MomentoEvaluativo::where([
             'numero_momento'     => $data['numero_momento'],
             'codigo_ano_escolar' => $data['codigo_ano_escolar'],
         ])->update($request->only(['nombre', 'fecha_inicio', 'fecha_fin', 'porcentaje', 'estado']));
+
+        if ($momento) {
+            $idStr = $data['codigo_ano_escolar'] . '-M' . $data['numero_momento'];
+            self::registrarAuditoria('Momento_Evaluativo', $idStr, 'U', $valoresAnteriores, $momento->fresh()->toArray());
+        }
 
         return response()->json(['message' => 'Momento actualizado.']);
     }
@@ -85,8 +104,11 @@ class MomentoEvaluativoController extends Controller
             ->where('numero_momento', $data['numero_momento'])
             ->firstOrFail();
 
+        $valoresAnteriores = $momento->toArray();
         try {
+            $idStr = $momento->codigo_ano_escolar . '-M' . $momento->numero_momento;
             $momento->delete();
+            self::registrarAuditoria('Momento_Evaluativo', $idStr, 'D', $valoresAnteriores, null);
             return response()->json(null, 204);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['error' => 'No se puede eliminar el momento evaluativo porque tiene dependencias.'], 409);

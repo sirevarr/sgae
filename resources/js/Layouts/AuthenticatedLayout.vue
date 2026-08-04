@@ -130,14 +130,6 @@ const filteredNavGroups = computed(() => {
                         <p class="text-piedra-soft text-[10px] uppercase tracking-[0.06em]">{{ user?.rol }}</p>
                     </div>
                 </div>
-                <Link
-                    :href="route('logout')"
-                    method="post"
-                    as="button"
-                    class="mt-3 w-full text-center text-[11px] text-piedra hover:text-paper transition-colors"
-                >
-                    Cerrar sesión
-                </Link>
             </div>
         </aside>
 
@@ -197,17 +189,34 @@ const filteredNavGroups = computed(() => {
                 </div>
                 <div v-else class="text-tinta font-serif font-semibold text-[19px]">Panel</div>
                 <!-- Usuario topbar -->
-                <div class="flex items-center gap-3 ml-auto">
-                    <div class="text-right">
-                        <p class="text-tinta text-xs font-semibold">{{ user?.codigo_usuario }}</p>
-                        <p class="text-piedra text-[10px] uppercase tracking-[0.06em]">{{ user?.rol }}</p>
-                    </div>
-                    <div class="relative w-8 h-8 shrink-0">
-                        <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
-                        <div class="absolute inset-[4px] rounded-full border border-rojo flex items-center justify-center bg-paper">
-                            <span class="font-serif text-[9px] font-bold text-tinta leading-none">{{ initials }}</span>
+                <div class="flex items-center gap-4 ml-auto">
+                    <div class="flex items-center gap-3">
+                        <div class="text-right">
+                            <p class="text-tinta text-xs font-semibold">{{ user?.codigo_usuario }}</p>
+                            <p class="text-piedra text-[10px] uppercase tracking-[0.06em]">{{ user?.rol }}</p>
+                        </div>
+                        <div class="relative w-8 h-8 shrink-0">
+                            <div class="absolute inset-0 rounded-full border-2 border-dorado"></div>
+                            <div class="absolute inset-[4px] rounded-full border border-rojo flex items-center justify-center bg-paper">
+                                <span class="font-serif text-[9px] font-bold text-tinta leading-none">{{ initials }}</span>
+                            </div>
                         </div>
                     </div>
+                    
+                    <div class="w-px h-6 bg-borde mx-1"></div>
+                    
+                    <Link
+                        :href="route('logout')"
+                        method="post"
+                        as="button"
+                        class="text-piedra hover:text-rojo transition-colors flex items-center gap-1.5"
+                        title="Cerrar sesión"
+                    >
+                        <span class="text-[13px] font-semibold hidden md:block">Salir</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </Link>
                 </div>
             </header>
 

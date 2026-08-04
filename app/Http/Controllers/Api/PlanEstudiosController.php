@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PlanEstudios;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PlanEstudiosController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         return response()->json($this->buildQuery($request)->get());
@@ -37,6 +40,8 @@ class PlanEstudiosController extends Controller
         }
 
         $plan = PlanEstudios::create($data);
+        $idStr = json_encode($this->buildPlanKey($data));
+        self::registrarAuditoria('Plan_Estudios', $idStr, 'I', null, $plan->toArray());
         return response()->json($plan->load(['materia', 'mencion', 'grado']), 201);
     }
 
@@ -55,10 +60,18 @@ class PlanEstudiosController extends Controller
             'estado'             => 'sometimes|string|max:20',
         ]);
 
+        $plan = PlanEstudios::where($this->buildPlanKey($keys))->first();
+        $valoresAnteriores = $plan ? $plan->toArray() : [];
+
         PlanEstudios::where($this->buildPlanKey($keys))
             ->update($request->only([
                 'horas_semanales', 'obligatoria', 'tipo_evaluacion', 'se_repara', 'creditos', 'estado'
             ]));
+
+        if ($plan) {
+            $idStr = json_encode($this->buildPlanKey($keys));
+            self::registrarAuditoria('Plan_Estudios', $idStr, 'U', $valoresAnteriores, $plan->fresh()->toArray());
+        }
 
         return response()->json(['message' => 'Plan actualizado.']);
     }
@@ -72,7 +85,15 @@ class PlanEstudiosController extends Controller
             'codigo_ano_escolar' => 'required|string',
         ]);
 
+        $plan = PlanEstudios::where($this->buildPlanKey($keys))->first();
+        $valoresAnteriores = $plan ? $plan->toArray() : [];
+
         PlanEstudios::where($this->buildPlanKey($keys))->delete();
+
+        if ($plan) {
+            $idStr = json_encode($this->buildPlanKey($keys));
+            self::registrarAuditoria('Plan_Estudios', $idStr, 'D', $valoresAnteriores, null);
+        }
 
         return response()->json(['message' => 'Entrada del plan eliminada.']);
     }

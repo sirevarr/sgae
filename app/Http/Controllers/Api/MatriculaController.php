@@ -37,6 +37,12 @@ class MatriculaController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // Convertir strings vacíos a null para campos opcionales
+        $request->merge(array_map(fn ($v) => $v === '' ? null : $v, $request->only([
+            'cedula_representante', 'numero_lista', 'procedencia',
+            'ano_inicio_cursante', 'observaciones',
+        ])));
+
         $data = $request->validate([
             'cedula_estudiante'    => 'required|string|exists:Estudiante,cedula_estudiante',
             'codigo_ano_escolar'   => 'required|string|exists:Anio_Escolar,codigo_ano_escolar',
@@ -81,6 +87,12 @@ class MatriculaController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         $matricula = Matricula::findOrFail($id);
+
+        // Convertir strings vacíos a null para campos opcionales
+        $request->merge(array_map(fn ($v) => $v === '' ? null : $v, $request->only([
+            'cedula_representante', 'numero_lista', 'observaciones',
+            'fecha_retiro', 'motivo_retiro',
+        ])));
 
         $data = $request->validate([
             'codigo_seccion'       => 'sometimes|string|exists:Seccion,codigo_seccion',

@@ -11,6 +11,8 @@ const canManageRecords = computed(() => ['administrador','control_estudios','doc
 // ── Catálogos ─────────────────────────────────────────────────────────
 const anios    = ref([]);
 const secciones = ref([]);
+const grados   = ref([]);
+const menciones = ref([]);
 
 // ── Filtros de vista ──────────────────────────────────────────────────
 const filtro = reactive({
@@ -43,9 +45,10 @@ const pendienteForm     = reactive({
     siglas_materia: '',
     codigo_grado: '',
     codigo_ano_escolar_origen: '',
+    id_mencion: '',
     estado: 'pendiente',
     nota_final: '',
-    fecha_resolucion: '',
+    fecha_resolucion: new Date().toISOString().split('T')[0],
 });
 const savingPend = ref(false);
 const showEquivalencias = ref(false);
@@ -67,7 +70,8 @@ async function abrirPendientes(mat) {
     Object.assign(pendienteForm, {
         siglas_materia: '', codigo_grado: seccionActual.value?.codigo_grado ?? '',
         codigo_ano_escolar_origen: filtro.codigo_ano_escolar,
-        estado: 'pendiente', nota_final: '', fecha_resolucion: '',
+        id_mencion: '',
+        estado: 'pendiente', nota_final: '', fecha_resolucion: new Date().toISOString().split('T')[0],
     });
     try {
         const { data } = await axios.get('/api/materias-pendientes', {
@@ -90,15 +94,15 @@ async function guardarPendiente() {
             codigo_grado: pendienteForm.codigo_grado || seccionActual.value?.codigo_grado,
             codigo_ano_escolar_origen: pendienteForm.codigo_ano_escolar_origen,
             estado: pendienteForm.estado,
-            nota_final: pendienteForm.nota_final || null,
+            nota_final: pendienteForm.nota_final === '' ? null : pendienteForm.nota_final,
             fecha_resolucion: pendienteForm.fecha_resolucion || null,
-            id_mencion: seccionActual.value?.id_mencion ?? null,
+            id_mencion: pendienteForm.id_mencion || null,
         });
         const { data } = await axios.get('/api/materias-pendientes', {
             params: { cedula_estudiante: pendienteEst.value.cedula_estudiante }
         });
         pendientesData.value = data.data ?? data;
-        Object.assign(pendienteForm, { siglas_materia: '', estado: 'pendiente', nota_final: '', fecha_resolucion: '' });
+        Object.assign(pendienteForm, { siglas_materia: '', id_mencion: '', estado: 'pendiente', nota_final: '', fecha_resolucion: new Date().toISOString().split('T')[0] });
     } catch(e) {
         alert('Error: ' + (e.response?.data?.message ?? e.message));
     } finally {
@@ -106,19 +110,24 @@ async function guardarPendiente() {
     }
 }
 
-async function actualizarEstadoPendiente(pend, nuevoEstado) {
+async function actualizarPendiente(pend, campo, valor) {
     try {
-        await axios.put(`/api/materias-pendientes/${pend.id_materia_pendiente}`, { estado: nuevoEstado });
+        const valFinal = valor === '' ? null : valor;
+        await axios.put(`/api/materias-pendientes/${pend.id_materia_pendiente}`, { [campo]: valFinal });
         const idx = pendientesData.value.findIndex(p => p.id_materia_pendiente === pend.id_materia_pendiente);
-        if (idx >= 0) pendientesData.value[idx].estado = nuevoEstado;
+        if (idx >= 0) pendientesData.value[idx][campo] = valFinal;
     } catch(e) {
         alert('Error: ' + (e.response?.data?.message ?? e.message));
     }
 }
 
 async function cargarCatalogos() {
-    const { data } = await axios.get('/api/anios-escolares');
-    anios.value = data;
+    const { data: dataA } = await axios.get('/api/anios-escolares');
+    anios.value = dataA;
+    const { data: dataG } = await axios.get('/api/grados');
+    grados.value = dataG.data ?? dataG;
+    const { data: dataM } = await axios.get('/api/menciones');
+    menciones.value = dataM.data ?? dataM;
 }
 
 async function cargarSecciones() {
@@ -161,11 +170,12 @@ async function cargarGrilla(forceNoMomento = false) {
         for (const mat of data.matriculas) {
             const ced = mat.cedula_estudiante;
             notasEdit[ced] = {};
+            esRevision[ced] = {};
             for (const pe of data.plan) {
                 const s = pe.siglas_materia;
-                const nota = data.evaluaciones?.[ced]?.[s]
-                    ?.find(e => e.numero_momento === filtro.numero_momento)?.nota;
-                notasEdit[ced][s] = nota !== undefined ? String(nota) : '';
+                const evalData = data.evaluaciones?.[ced]?.[s]?.find(e => e.numero_momento === filtro.numero_momento);
+                notasEdit[ced][s] = evalData?.nota !== undefined && evalData.nota !== null ? String(evalData.nota) : '';
+                esRevision[ced][s] = evalData?.es_revision ?? false;
             }
         }
         cargado.value = true;
@@ -266,7 +276,7 @@ onMounted(cargarCatalogos);
                         class="inp mt-1" :disabled="!secciones.length">
                         <option value="">Seleccionar...</option>
                         <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
-                            {{ s.grado?.nombre }} — {{ s.letra }} ({{ s.turno }})
+                            {{ s.grado?.nombre }} — {{ s.letra }}{{ s.mencion ? ' · ' + s.mencion.nombre : '' }} ({{ s.turno }})
                         </option>
                     </select>
                 </div>
@@ -339,22 +349,30 @@ onMounted(cargarCatalogos);
                             </div>
                         </td>
                         <!-- Input de nota por materia -->
-                        <td v-for="pe in plan" :key="mat.cedula_estudiante + pe.siglas_materia" class="px-2 py-1 text-center">
-                            <input
-                                v-if="canManageRecords"
-                                :id="`nota-${mat.cedula_estudiante}-${pe.siglas_materia}`"
-                                v-model="notasEdit[mat.cedula_estudiante][pe.siglas_materia]"
-                                type="number" min="0" max="20" step="0.1"
-                                :class="['w-14 text-center border rounded-[4px] py-1 text-[12px] focus:outline-none focus:border-rojo transition-colors',
-                                    colorNota(notasEdit[mat.cedula_estudiante][pe.siglas_materia]),
-                                    notasEdit[mat.cedula_estudiante][pe.siglas_materia] === '' ? 'border-borde bg-crema' :
-                                    Number.parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia]) >= notaMinima ? 'border-ok/40 bg-[#E6EEE0]' : 'border-rojo/30 bg-[#F4DEDA]'
-                                ]"
-                                placeholder="—"
-                            />
-                            <span v-else class="text-piedra text-[12px]">
-                                {{ notasEdit[mat.cedula_estudiante][pe.siglas_materia] || '—' }}
-                            </span>
+                        <td v-for="pe in plan" :key="mat.cedula_estudiante + pe.siglas_materia" class="px-2 py-1.5 text-center align-top">
+                            <div class="flex flex-col items-center gap-1">
+                                <input
+                                    v-if="canManageRecords"
+                                    :id="`nota-${mat.cedula_estudiante}-${pe.siglas_materia}`"
+                                    v-model="notasEdit[mat.cedula_estudiante][pe.siglas_materia]"
+                                    type="number" min="0" max="20" step="0.1"
+                                    :class="['w-14 text-center border rounded-[4px] py-1 text-[12px] focus:outline-none focus:border-rojo transition-colors',
+                                        colorNota(notasEdit[mat.cedula_estudiante][pe.siglas_materia]),
+                                        notasEdit[mat.cedula_estudiante][pe.siglas_materia] === '' ? 'border-borde bg-crema' :
+                                        Number.parseFloat(notasEdit[mat.cedula_estudiante][pe.siglas_materia]) >= notaMinima ? 'border-ok/40 bg-[#E6EEE0]' : 'border-rojo/30 bg-[#F4DEDA]'
+                                    ]"
+                                    placeholder="—"
+                                />
+                                <span v-else class="text-piedra text-[12px] mt-0.5">
+                                    {{ notasEdit[mat.cedula_estudiante][pe.siglas_materia] || '—' }}
+                                </span>
+                                
+                                <label v-if="canManageRecords" class="flex items-center gap-1 cursor-pointer mt-0.5" title="Marcar como En Revisión">
+                                    <input type="checkbox" v-model="esRevision[mat.cedula_estudiante][pe.siglas_materia]" class="w-3 h-3 text-tinta border-borde rounded accent-tinta">
+                                    <span class="text-[9px] uppercase tracking-wide font-semibold" :class="esRevision[mat.cedula_estudiante][pe.siglas_materia] ? 'text-tinta' : 'text-piedra'">Rev</span>
+                                </label>
+                                <span v-else-if="esRevision[mat.cedula_estudiante][pe.siglas_materia]" class="text-[9px] uppercase tracking-wide font-semibold text-alerta">Rev</span>
+                            </div>
                         </td>
                         <!-- Promedio de la fila -->
                         <td class="px-3 py-2 text-center">
@@ -410,8 +428,26 @@ onMounted(cargarCatalogos);
                                 </select>
                             </div>
                             <div>
-                                <label class="lbl">Año Escolar Origen</label>
+                                <label class="lbl">Año Escolar Origen *</label>
                                 <input v-model="pendienteForm.codigo_ano_escolar_origen" type="text" class="inp mt-1" />
+                            </div>
+                            <div>
+                                <label class="lbl">Grado Origen *</label>
+                                <select v-model="pendienteForm.codigo_grado" class="inp mt-1">
+                                    <option value="">Seleccionar...</option>
+                                    <option v-for="g in grados" :key="g.codigo_grado" :value="g.codigo_grado">
+                                        {{ g.nombre }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="lbl">Mención Origen</label>
+                                <select v-model="pendienteForm.id_mencion" class="inp mt-1">
+                                    <option value="">Ninguna / Educación General</option>
+                                    <option v-for="m in menciones" :key="m.id_mencion" :value="m.id_mencion">
+                                        {{ m.nombre }}
+                                    </option>
+                                </select>
                             </div>
                             <div>
                                 <label class="lbl">Estado</label>
@@ -451,6 +487,7 @@ onMounted(cargarCatalogos);
                                     <th class="th">Año Origen</th>
                                     <th class="th">Estado</th>
                                     <th class="th text-center">Nota</th>
+                                    <th class="th text-center">Fecha Resolución</th>
                                     <th class="th">Acción</th>
                                 </tr>
                             </thead>
@@ -466,9 +503,19 @@ onMounted(cargarCatalogos);
                                             {{ p.estado }}
                                         </span>
                                     </td>
-                                    <td class="td text-center text-[12.5px]">{{ p.nota_final ?? '—' }}</td>
+                                    <td class="td text-center text-[12.5px]">
+                                        <input type="number" min="0" max="20" step="0.1" :value="p.nota_final"
+                                            @change="e => actualizarPendiente(p, 'nota_final', e.target.value)"
+                                            class="w-16 text-center border border-borde rounded px-1 py-1 text-[11px] bg-paper text-tinta focus:outline-none focus:border-rojo"
+                                            placeholder="—" />
+                                    </td>
+                                    <td class="td text-center text-[12px]">
+                                        <input type="date" :value="p.fecha_resolucion ? p.fecha_resolucion.split('T')[0] : ''"
+                                            @change="e => actualizarPendiente(p, 'fecha_resolucion', e.target.value)"
+                                            class="border border-borde rounded px-1 py-1 text-[11px] bg-paper text-tinta focus:outline-none focus:border-rojo" />
+                                    </td>
                                     <td class="td flex gap-1 items-center">
-                                        <select :value="p.estado" @change="e => actualizarEstadoPendiente(p, e.target.value)"
+                                        <select :value="p.estado" @change="e => actualizarPendiente(p, 'estado', e.target.value)"
                                             class="text-[11px] border border-borde rounded px-1.5 py-1 bg-paper text-tinta font-semibold focus:outline-none">
                                             <option value="pendiente">Pendiente</option>
                                             <option value="aprobada">Aprobada</option>

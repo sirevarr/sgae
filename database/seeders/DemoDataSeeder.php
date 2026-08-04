@@ -405,10 +405,20 @@ class DemoDataSeeder extends Seeder
     private function asignacionesDocentes($docentes, $secciones, $ciencias, $contabilidad, $tecnologia): void
     {
         $asign = [
-            // Sección 1A (1ER, mención Ciencias como base)
+            // Sección 1A y 1B (1ER, mención Ciencias como base)
             [15111111, '1A-2025', 'MAT', $ciencias, '1ER'],
             [15222222, '1A-2025', 'CAS', $ciencias, '1ER'],
             [15444444, '1A-2025', 'ING', $ciencias, '1ER'],
+            [15333333, '1A-2025', 'GHC', $ciencias, '1ER'],
+            [15555555, '1A-2025', 'ART', $ciencias, '1ER'],
+            [15111111, '1A-2025', 'EDF', $ciencias, '1ER'],
+            
+            [15111111, '1B-2025', 'MAT', $ciencias, '1ER'],
+            [15222222, '1B-2025', 'CAS', $ciencias, '1ER'],
+            [15444444, '1B-2025', 'ING', $ciencias, '1ER'],
+            [15333333, '1B-2025', 'GHC', $ciencias, '1ER'],
+            [15555555, '1B-2025', 'ART', $ciencias, '1ER'],
+            [15111111, '1B-2025', 'EDF', $ciencias, '1ER'],
             // Sección 5A-Ciencias
             [15333333, '5A-CIEN-2025', 'BIO', $ciencias, '5TO'],
             [15555555, '5A-CIEN-2025', 'FIS', $ciencias, '5TO'],
@@ -580,30 +590,51 @@ class DemoDataSeeder extends Seeder
 
     private function evaluaciones($ciencias, $contabilidad, $tecnologia): void
     {
-        // ── Notas sección 1A (1ER año, mención Ciencias base) ──
+        // ── Notas sección 1A (1ER año) ──
         $notas1A = [
-            // Caso 1: Génesis - literal A perfecto (notas altísimas)
             ['30111111', 'MAT', 1, 16, false], ['30111111', 'MAT', 2, 17, false],
             ['30111111', 'CAS', 1, 18, false], ['30111111', 'CAS', 2, 19, false],
-            // Caso 2: Santiago - reprobado sostenido
             ['30222222', 'MAT', 1, 8,  false], ['30222222', 'MAT', 2, 9,  false],
             ['30222222', 'CAS', 1, 12, false], ['30222222', 'CAS', 2, 13, false],
-            // Valeria - notas normales
             ['30333333', 'MAT', 1, 14, false], ['30333333', 'MAT', 2, 15, false],
             ['30333333', 'CAS', 1, 15, false], ['30333333', 'CAS', 2, 16, false],
-            // Ángel (E1230001) - notas justas
             ['E1230001', 'MAT', 1, 11, false], ['E1230001', 'MAT', 2, 10, false],
-            // Sofía - excelente
-            ['30444444', 'MAT', 1, 20, false], ['30444444', 'MAT', 2, 19, false],
         ];
+        
+        // Agregar notas completas (3 momentos en todas las materias) para Sofía (30444444) en 1A
+        $materias1ER = ['MAT', 'CAS', 'ING', 'GHC', 'ART', 'EDF'];
+        foreach ($materias1ER as $mat) {
+            foreach ([1, 2, 3] as $mom) {
+                $nota = $mat === 'EDF' ? 1 : rand(17, 20); // Excelente estudiante
+                $notas1A[] = ['30444444', $mat, $mom, $nota, false];
+            }
+        }
+
         foreach ($notas1A as [$ced, $mat, $mom, $nota, $rev]) {
             Evaluacion::updateOrCreate(
                 ['cedula_estudiante' => $ced, 'siglas_materia' => $mat, 'id_mencion' => $ciencias->id_mencion,
                  'codigo_grado' => '1ER', 'codigo_ano_escolar' => self::ANIO_VIGENTE, 'numero_momento' => $mom],
-                ['nota' => $nota, 'fecha_evaluacion' => $mom === 1 ? '2025-11-25' : '2026-03-10',
-                 'cedula_docente_evaluador' => $mat === 'MAT' ? 15111111 : 15222222, 'es_revision' => $rev]
+                ['nota' => $nota, 'fecha_evaluacion' => $mom === 1 ? '2025-11-25' : ($mom === 2 ? '2026-03-10' : '2026-06-15'),
+                 'cedula_docente_evaluador' => 15111111, 'es_revision' => $rev]
             );
         }
+
+        // ── Notas completas sección 1B (1ER año) ──
+        $estudiantes1B = ['30555555', '30666666', '30777777'];
+        foreach ($estudiantes1B as $ced) {
+            foreach ($materias1ER as $mat) {
+                foreach ([1, 2, 3] as $mom) {
+                    $nota = $mat === 'EDF' ? 1 : rand(12, 18);
+                    Evaluacion::updateOrCreate(
+                        ['cedula_estudiante' => $ced, 'siglas_materia' => $mat, 'id_mencion' => $ciencias->id_mencion,
+                         'codigo_grado' => '1ER', 'codigo_ano_escolar' => self::ANIO_VIGENTE, 'numero_momento' => $mom],
+                        ['nota' => $nota, 'fecha_evaluacion' => $mom === 1 ? '2025-11-25' : ($mom === 2 ? '2026-03-10' : '2026-06-15'),
+                         'cedula_docente_evaluador' => 15222222, 'es_revision' => false]
+                    );
+                }
+            }
+        }
+
 
         // ── Notas sección 5A-Ciencias ──
         $notas5Cien = [
@@ -686,6 +717,7 @@ class DemoDataSeeder extends Seeder
         $docs = [
             ['boletin',           '30111111',  1,    'BOL-2025-0001', 20],
             ['boletin',           '30222222',  1,    'BOL-2025-0002', 20],
+            ['boletin',           '30444444',  3,    'BOL-2025-0003',  1], // Sofía
             ['constancia',        '30444444',  null, 'CE-2025-0001',  10],
             ['notas_certificadas','E1234567',  null, 'NC-2025-0001',  5],
             ['resumen_final',     '30888888',  null, 'REV-2025-0001', 2],
@@ -725,10 +757,33 @@ class DemoDataSeeder extends Seeder
             ['ip_acceso' => '192.168.1.20', 'tipo_acceso' => 'E', 'exitoso' => false]
         );
 
-        // Nota: no se insertan filas de Auditoria a mano — el propio trait Auditable
-        // las genera solas en cuanto edites/crees/borres un estudiante, matrícula,
-        // evaluación o materia pendiente desde la interfaz. Para que la pantalla de
-        // Auditoría no aparezca vacía en el video, haz una edición real (por ejemplo,
-        // corrige una nota) ANTES de mostrar ese módulo — ver Paso 8 de la guía.
+        // Generar algunas filas de auditoría simuladas para la demo del video
+        $fechas = [
+            now()->subDays(1)->setTime(10, 30, 0),
+            now()->subDays(1)->setTime(11, 45, 0),
+            now()->subMinutes(120),
+            now()->subMinutes(45),
+            now()->subMinutes(15),
+        ];
+
+        $auditData = [
+            ['Estudiante', '30444444', 'U', null, '{"direccion": "Charallave Centro"}', $usuarios['admin']->id_usuario, $fechas[0]],
+            ['Materia', 'MAT', 'U', null, '{"horas_semanales": 6}', $usuarios['control']->id_usuario, $fechas[1]],
+            ['Seccion', '1A-2025', 'I', null, '{"capacidad_maxima": 35}', $usuarios['admin']->id_usuario, $fechas[2]],
+            ['Institucion', '1', 'U', null, '{"telefono": "0239-5555555"}', $usuarios['admin']->id_usuario, $fechas[3]],
+            ['Evaluacion', 'EVAL-001', 'U', '{"nota": 12}', '{"nota": 18}', $usuarios['docente1']->id_usuario, $fechas[4]],
+        ];
+
+        foreach ($auditData as [$tabla, $idReg, $op, $ant, $nuev, $usrId, $fh]) {
+            Auditoria::create([
+                'tabla_afectada' => $tabla,
+                'id_registro_afectado' => $idReg,
+                'operacion' => $op,
+                'valores_anteriores' => $ant,
+                'valores_nuevos' => $nuev,
+                'id_usuario' => $usrId,
+                'fecha_hora' => $fh,
+            ]);
+        }
     }
 }

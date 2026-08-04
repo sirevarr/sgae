@@ -218,8 +218,16 @@ async function descargarSeccion(tipo) {
 const seccionLabel = computed(() => {
     if (!filtroSec.codigo_seccion) return '';
     const s = secciones.value.find(s => s.codigo_seccion === filtroSec.codigo_seccion);
-    return s ? `${s.grado?.nombre ?? ''} - Sección ${s.letra}` : filtroSec.codigo_seccion;
+    if (!s) return '';
+    return `${s.grado?.nombre ?? s.codigo_grado} — Sección ${s.letra}`;
 });
+
+function onSeccionChange() {
+    const s = secciones.value.find(s => s.codigo_seccion === filtroSec.codigo_seccion);
+    if (s) {
+        filtroSec.codigo_ano_escolar = s.codigo_ano_escolar;
+    }
+}
 
 onMounted(cargarCatalogos);
 
@@ -410,7 +418,7 @@ async function cargarRespaldos() {
 
                 <div class="bg-paper border border-borde rounded-[6px] p-5">
                     <label class="lbl mb-2">1. Sección</label>
-                    <select v-model="filtroSec.codigo_seccion" class="inp">
+                    <select v-model="filtroSec.codigo_seccion" @change="onSeccionChange" class="inp">
                         <option value="">Seleccionar sección...</option>
                         <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
                             {{ s.grado?.nombre ?? s.codigo_grado }} — Sección {{ s.letra }} ({{ s.codigo_ano_escolar }})
@@ -423,7 +431,7 @@ async function cargarRespaldos() {
 
                 <div class="bg-paper border border-borde rounded-[6px] p-5">
                     <label class="lbl mb-2">2. Año Escolar</label>
-                    <select v-model="filtroSec.codigo_ano_escolar" class="inp">
+                    <select v-model="filtroSec.codigo_ano_escolar" class="inp" :disabled="!!filtroSec.codigo_seccion" :class="{ 'bg-crema/50 cursor-not-allowed': !!filtroSec.codigo_seccion }">
                         <option value="">Seleccionar...</option>
                         <option v-for="a in anios" :key="a.codigo_ano_escolar" :value="a.codigo_ano_escolar">
                             {{ a.codigo_ano_escolar }}
@@ -511,6 +519,7 @@ async function cargarRespaldos() {
                                 <th class="th">Nombre del Archivo</th>
                                 <th class="th">Tamaño</th>
                                 <th class="th">Fecha</th>
+                                <th class="th text-right">Acción</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-borde">
@@ -518,6 +527,12 @@ async function cargarRespaldos() {
                                 <td class="td font-mono text-[11px] text-tinta">{{ r.nombre }}</td>
                                 <td class="td text-[12px] text-piedra">{{ (r.tamaño / 1024).toFixed(1) }} KB</td>
                                 <td class="td text-[12px] text-piedra">{{ r.fecha }}</td>
+                                <td class="td text-right">
+                                    <a :href="`/api/respaldos/${r.nombre}`" target="_blank"
+                                        class="inline-flex items-center gap-1.5 text-[11px] font-semibold bg-white border border-borde text-piedra px-3 py-1.5 rounded-[4px] hover:text-tinta hover:border-piedra transition-colors shadow-sm">
+                                        Descargar
+                                    </a>
+                                </td>
                             </tr>
                         </tbody>
                     </table>

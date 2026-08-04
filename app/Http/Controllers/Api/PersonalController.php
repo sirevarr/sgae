@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\Docente;
 use App\Models\Personal;
 use App\Models\Usuario;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PersonalController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         if (! Personal::tableExists()) {
@@ -87,6 +90,8 @@ class PersonalController extends Controller
             ]));
         }
 
+        self::registrarAuditoria('Personal', (string) $personal->cedula_personal, 'I', null, $personal->toArray());
+
         return response()->json($personal->load('docente'), 201);
     }
 
@@ -114,6 +119,7 @@ class PersonalController extends Controller
             'turno'            => 'sometimes|nullable|string|max:1',
         ]);
 
+        $valoresAnteriores = $personal->toArray();
         $personal->update($data);
 
         $docentePayload = $this->buildDocentePayload($data);
@@ -123,6 +129,8 @@ class PersonalController extends Controller
                 $docentePayload
             );
         }
+
+        self::registrarAuditoria('Personal', (string) $cedula, 'U', $valoresAnteriores, $personal->fresh()->toArray());
 
         return response()->json($personal->fresh(['docente']));
     }
@@ -134,11 +142,13 @@ class PersonalController extends Controller
         }
 
         $personal = Personal::findOrFail($cedula);
+        $valoresAnteriores = $personal->toArray();
         try {
             if ($personal->docente) {
                 $personal->docente->delete();
             }
             $personal->delete();
+            self::registrarAuditoria('Personal', (string) $cedula, 'D', $valoresAnteriores, null);
             return response()->json(['message' => 'Personal eliminado correctamente.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json([

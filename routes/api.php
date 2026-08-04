@@ -135,6 +135,7 @@ Route::middleware('auth')->group(function () use ($personalRoute, $usuarioRoute,
         // Punto 5 — Respaldo de base de datos (solo administrador)
         Route::post('/respaldos',                     [RespaldoController::class, 'generar']);
         Route::get('/respaldos',                      [RespaldoController::class, 'index']);
+        Route::get('/respaldos/{archivo}',            [RespaldoController::class, 'descargar']);
     });
 
     // ── ROL: ADMINISTRADOR Y CONTROL DE ESTUDIOS ────────────────────────

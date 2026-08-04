@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Institucion;
 use App\Models\Personal;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class InstitucionController extends Controller
 {
+    use Auditable;
+
     /** GET /api/institucion — datos de la institución (primer registro) */
     public function show(): JsonResponse
     {
@@ -53,15 +56,20 @@ class InstitucionController extends Controller
             'coordinador_academico'  => 'sometimes|nullable|integer|exists:Personal,cedula_personal',
         ]);
 
+        $valoresAnteriores = $inst->toArray();
         $inst->update($data);
+        self::registrarAuditoria('Institucion', $inst->codigo_dea, 'U', $valoresAnteriores, $inst->fresh()->toArray());
+        
         return response()->json($inst->fresh(['director', 'coordinador']));
     }
 
     public function destroy(string $codigo_dea): JsonResponse
     {
         $institucion = Institucion::findOrFail($codigo_dea);
+        $valoresAnteriores = $institucion->toArray();
         try {
             $institucion->delete();
+            self::registrarAuditoria('Institucion', $codigo_dea, 'D', $valoresAnteriores, null);
             return response()->json(null, 204);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json(['error' => 'No se puede eliminar la institución porque tiene registros relacionados.'], 409);
@@ -88,6 +96,8 @@ class InstitucionController extends Controller
         ]);
 
         $inst = Institucion::create($data);
+        self::registrarAuditoria('Institucion', $inst->codigo_dea, 'I', null, $inst->toArray());
+        
         return response()->json($inst, 201);
     }
 

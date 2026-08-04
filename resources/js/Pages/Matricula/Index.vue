@@ -116,9 +116,13 @@ async function guardar() {
         setTimeout(() => successMsg.value = '', 3000);
         cargar();
     } catch (e) {
-        if (e.response?.status === 422) errors.value = e.response.data.errors ?? {};
-        else if (e.response?.data?.error) alert(e.response.data.error);
-        else alert('Error: ' + (e.response?.data?.message ?? e.message));
+        if (e.response?.data?.error) {
+            alert(e.response.data.error);
+        } else if (e.response?.status === 422) {
+            errors.value = e.response.data.errors ?? {};
+        } else {
+            alert('Error: ' + (e.response?.data?.message ?? e.message));
+        }
     } finally {
         saving.value = false;
     }
@@ -280,7 +284,7 @@ onMounted(async () => {
                             <select v-model="form.codigo_seccion" class="inp">
                                 <option value="">Seleccionar...</option>
                                 <option v-for="s in secciones" :key="s.codigo_seccion" :value="s.codigo_seccion">
-                                    {{ s.grado?.nombre }} — {{ s.letra }} ({{ s.cupos_disponibles ?? '?' }} cupos)
+                                    {{ s.grado?.nombre }} — {{ s.letra }}{{ s.mencion ? ' · ' + s.mencion.nombre : '' }} ({{ s.cupos_disponibles ?? '?' }} cupos)
                                 </option>
                             </select>
                             <p v-if="errors.codigo_seccion" class="err">{{ errors.codigo_seccion[0] }}</p>
@@ -288,6 +292,7 @@ onMounted(async () => {
                         <div class="col-span-2">
                             <label class="lbl">Cédula Representante</label>
                             <input v-model="form.cedula_representante" type="text" class="inp" placeholder="Opcional" />
+                            <p v-if="errors.cedula_representante" class="err">{{ errors.cedula_representante[0] }}</p>
                         </div>
                         <div>
                             <label class="lbl">Fecha Matrícula *</label>

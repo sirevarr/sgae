@@ -278,8 +278,9 @@ def generar_constancia_estudio(data, output_file):
 
     # Fecha de emisión
     dt = datetime.now()
+    motivo = data.get('motivo', 'los fines consiguientes')
     fecha_exp = (
-        f"Constancia que se expide en la ciudad de CHARALLAVE a los <b>{dt.day}</b> días del mes de <b>{MESES.get(dt.month, '')}</b> del año <b>{dt.year}</b>."
+        f"Constancia que se expide en la ciudad de CHARALLAVE a los <b>{dt.day}</b> días del mes de <b>{MESES.get(dt.month, '')}</b> del año <b>{dt.year}</b>, para {motivo}."
     )
     story.append(Paragraph(fecha_exp, styles['BodyJustified']))
     story.append(Spacer(1, 1.0*inch))
@@ -594,7 +595,6 @@ def generar_boletin(data, output_file):
                         elif raw >= 15: row[index] = 'B'
                         elif raw >= 12: row[index] = 'C'
                         elif raw >= 10: row[index] = 'D'
-                        elif raw == 1:  row[index] = 'A'
                         else:          row[index] = 'E'
                     else:
                         clean = str(raw).strip().upper()
@@ -610,7 +610,6 @@ def generar_boletin(data, output_file):
                     elif avg >= 15: row[5] = 'B'
                     elif avg >= 12: row[5] = 'C'
                     elif avg >= 10: row[5] = 'D'
-                    elif avg == 1:  row[5] = 'A'
                     else:          row[5] = 'E'
                 else:
                     row[5] = str(int(round(avg)))

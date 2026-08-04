@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Seccion;
 use App\Models\AsignacionDocente;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class SeccionController extends Controller
 {
+    use Auditable;
+
     public function index(Request $request): JsonResponse
     {
         $q = $this->buildQuery($request)
@@ -47,8 +50,12 @@ class SeccionController extends Controller
             'aula_asignada'       => 'nullable|string|max:40',
         ]);
 
+        $seccion = Seccion::create($data);
+        
+        self::registrarAuditoria('Seccion', $seccion->codigo_seccion, 'I', null, $seccion->toArray());
+
         return response()->json(
-            Seccion::create($data)->load(['grado', 'mencion']), 201
+            $seccion->load(['grado', 'mencion']), 201
         );
     }
 
@@ -63,15 +70,22 @@ class SeccionController extends Controller
             'turno'               => 'sometimes|string|max:1',
             'aula_asignada'       => 'sometimes|nullable|string|max:40',
         ]);
+        
+        $valoresAnteriores = $seccion->toArray();
         $seccion->update($data);
+        
+        self::registrarAuditoria('Seccion', $seccion->codigo_seccion, 'U', $valoresAnteriores, $seccion->fresh()->toArray());
+        
         return response()->json($seccion->fresh(['grado', 'mencion', 'docenteGuia.personal']));
     }
 
     public function destroy(string $codigo): JsonResponse
     {
         $seccion = Seccion::findOrFail($codigo);
+        $valoresAnteriores = $seccion->toArray();
         try {
             $seccion->delete();
+            self::registrarAuditoria('Seccion', $codigo, 'D', $valoresAnteriores, null);
             return response()->json(['message' => 'Sección eliminada.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json([

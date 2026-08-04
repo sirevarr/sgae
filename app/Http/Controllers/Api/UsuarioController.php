@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Personal;
 use App\Models\Usuario;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class UsuarioController extends Controller
 {
+    use Auditable;
+
     public function index(): JsonResponse
     {
         if (! Usuario::tableExists()) {
@@ -66,6 +69,8 @@ class UsuarioController extends Controller
             'fecha_creacion'  => now()->toDateString(),
         ]);
 
+        self::registrarAuditoria('Usuario', (string) $usuario->id_usuario, 'I', null, $usuario->toArray());
+
         return response()->json($usuario->load('personal'), 201);
     }
 
@@ -92,7 +97,10 @@ class UsuarioController extends Controller
             $data['intentos_fallidos'] = 0;
         }
 
+        $valoresAnteriores = $usuario->toArray();
         $usuario->update($data);
+        self::registrarAuditoria('Usuario', (string) $usuario->id_usuario, 'U', $valoresAnteriores, $usuario->fresh()->toArray());
+
         return response()->json($usuario->fresh('personal'));
     }
 
@@ -102,7 +110,12 @@ class UsuarioController extends Controller
             return $this->tableUnavailableResponse('Usuario');
         }
 
-        Usuario::findOrFail($id)->update(['estado' => 'inactivo']);
+        $usuario = Usuario::findOrFail($id);
+        $valoresAnteriores = $usuario->toArray();
+        $usuario->update(['estado' => 'inactivo']);
+        
+        self::registrarAuditoria('Usuario', (string) $id, 'D', $valoresAnteriores, $usuario->fresh()->toArray());
+        
         return response()->json(['message' => 'Usuario desactivado.']);
     }
 
@@ -116,11 +129,13 @@ class UsuarioController extends Controller
 
         $request->validate(['password' => 'required|string|min:8']);
         $usuario = Usuario::findOrFail($id);
+        $valoresAnteriores = $usuario->toArray();
         $usuario->update([
             'clave_hash'       => Hash::make($request->password),
             'intentos_fallidos' => 0,
             'estado'           => 'activo',
         ]);
+        self::registrarAuditoria('Usuario', (string) $id, 'U', $valoresAnteriores, $usuario->fresh()->toArray());
         return response()->json(['message' => 'Contraseña restablecida.']);
     }
 }

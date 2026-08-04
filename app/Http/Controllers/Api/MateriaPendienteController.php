@@ -53,6 +53,13 @@ class MateriaPendienteController extends Controller
             'nota_final'               => 'nullable|numeric|min:0|max:20',
         ]);
 
+        $anioActivo = \App\Models\AnioEscolar::vigente();
+        if ($anioActivo && $data['codigo_ano_escolar_origen'] === $anioActivo->codigo_ano_escolar) {
+            return response()->json([
+                'message' => 'No puedes registrar una materia pendiente para el año escolar actual en curso. Las recuperaciones de este año se manejan en la grilla principal marcándolas en Revisión.'
+            ], 422);
+        }
+
         $existente = MateriaPendiente::where('cedula_estudiante', $data['cedula_estudiante'])
             ->where('siglas_materia', $data['siglas_materia'])
             ->where('codigo_ano_escolar_origen', $data['codigo_ano_escolar_origen'])
@@ -60,26 +67,35 @@ class MateriaPendienteController extends Controller
 
         if ($existente) {
             return response()->json([
-                'message' => "La materia '{$data['siglas_materia']}' ya está registrada como pendiente para este estudiante en el año escolar origen {$data['codigo_ano_escolar_origen']}.",
+                'message' => 'Esta materia ya está registrada como pendiente para este año escolar origen.'
             ], 422);
         }
 
-        $mp = MateriaPendiente::create($data);
+        try {
+            $mp = MateriaPendiente::create($data);
 
-        // Auditoría: INSERT
-        self::registrarAuditoria(
-            'Materia_Pendiente',
-            (string) $mp->id_materia_pendiente,
-            'I',
-            null,
-            $mp->toArray()
-        );
+            // Auditoría: INSERT
+            self::registrarAuditoria(
+                'Materia_Pendiente',
+                (string) $mp->id_materia_pendiente,
+                'I',
+                null,
+                $mp->toArray()
+            );
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Materia pendiente registrada.',
-            'data'    => $mp->load(['materia', 'grado']),
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Materia pendiente registrada.',
+                'data'    => $mp->load(['materia', 'grado']),
+            ], 201);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if (str_contains($e->getMessage(), 'FK_Materia_Pendient_3B16B004') || str_contains($e->getMessage(), 'Plan_Estudios')) {
+                return response()->json([
+                    'message' => "Error: La materia '{$data['siglas_materia']}' no está registrada en el Plan de Estudios para el grado {$data['codigo_grado']} en el año escolar {$data['codigo_ano_escolar_origen']} con esa mención. Verifica el Grado, la Mención y el Año Origen."
+                ], 422);
+            }
+            throw $e;
+        }
     }
 
     /** PUT /api/materias-pendientes/{id} */
@@ -88,12 +104,20 @@ class MateriaPendienteController extends Controller
         $mp = MateriaPendiente::findOrFail($id);
 
         $data = $request->validate([
-            'estado'           => 'sometimes|string|in:pendiente,aprobada,no_aprobada',
-            'fecha_resolucion' => 'sometimes|nullable|date',
-            'nota_final'       => 'sometimes|nullable|numeric|min:0|max:20',
+            'estado'                   => 'required|string|in:pendiente,aprobada,no_aprobada',
+            'fecha_resolucion'         => 'nullable|date',
+            'nota_final'               => 'nullable|numeric|min:0|max:20',
         ]);
 
-        // Capturar valores anteriores
+        $mp = MateriaPendiente::findOrFail($id);
+
+        $anioActivo = \App\Models\AnioEscolar::vigente();
+        if ($anioActivo && $mp->codigo_ano_escolar_origen === $anioActivo->codigo_ano_escolar) {
+            return response()->json([
+                'message' => 'No puedes modificar o mantener una materia pendiente que tenga el año escolar actual en curso. Las recuperaciones de este año se manejan en la grilla principal marcándolas en Revisión.'
+            ], 422);
+        }
+
         $valoresAnteriores = $mp->toArray();
 
         $mp->update($data);

@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Grado;
+use App\Models\Traits\Auditable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class GradoController extends Controller
 {
+    use Auditable;
+
     public function index(): JsonResponse
     {
         return response()->json(Grado::orderBy('numero_ano')->get());
@@ -28,12 +31,15 @@ class GradoController extends Controller
         if ($exists) {
             return response()->json(['message' => 'El código de grado ya existe.'], 422);
         }
-        return response()->json(Grado::create($data), 201);
+        $grado = Grado::create($data);
+        self::registrarAuditoria('Grado', $grado->codigo_grado, 'I', null, $grado->toArray());
+        return response()->json($grado, 201);
     }
 
     public function update(Request $request, string $codigo): JsonResponse
     {
         $grado = Grado::findOrFail($codigo);
+        $valoresAnteriores = $grado->toArray();
         $data = $request->validate([
             'nombre'          => 'sometimes|string|max:60',
             'nivel_educativo' => 'sometimes|string|max:40',
@@ -41,14 +47,17 @@ class GradoController extends Controller
             'estado'          => 'sometimes|string|max:20',
         ]);
         $grado->update($data);
+        self::registrarAuditoria('Grado', $codigo, 'U', $valoresAnteriores, $grado->fresh()->toArray());
         return response()->json($grado->fresh());
     }
 
     public function destroy(string $codigo): JsonResponse
     {
         $grado = Grado::findOrFail($codigo);
+        $valoresAnteriores = $grado->toArray();
         try {
             $grado->delete();
+            self::registrarAuditoria('Grado', $codigo, 'D', $valoresAnteriores, null);
             return response()->json(['message' => 'Grado eliminado correctamente.']);
         } catch (\Illuminate\Database\QueryException $e) {
             return response()->json([

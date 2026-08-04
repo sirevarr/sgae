@@ -69,6 +69,179 @@ function formatearFechaHora(fh) {
     }
 }
 
+function formatearFecha(f) {
+    if (!f) return '—';
+    try {
+        const d = new Date(f);
+        return d.toLocaleDateString('es-VE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+    } catch { return f; }
+}
+
+function formatearHora(h) {
+    if (!h) return '—';
+    // Remove microseconds if present (e.g. 03:28:15.0000000 -> 03:28:15)
+    return String(h).split('.')[0];
+}
+
+// ── Mapa de nombres de tabla a nombres legibles ──
+const tablaLabels = {
+    'Evaluacion':         'Evaluaciones',
+    'Materia_Pendiente':  'Materias Pendientes',
+    'Estudiante':         'Estudiantes',
+    'Matricula':          'Matrículas',
+    'Seccion':            'Secciones',
+    'Personal':           'Personal',
+    'Usuario':            'Usuarios',
+    'Institucion':        'Institución',
+    'Anio_Escolar':       'Años Escolares',
+    'Grado':              'Grados',
+    'Mencion':            'Menciones',
+    'Materia':            'Materias',
+    'Plan_Estudios':      'Plan de Estudios',
+    'Momento_Evaluativo': 'Momentos Evaluativos',
+    'Documento_Emitido':  'Documentos',
+    'Representante':      'Representantes',
+};
+
+function formatearTabla(tabla) {
+    return tablaLabels[tabla] || tabla;
+}
+
+function parseSafe(json) {
+    if (!json) return null;
+    try { return typeof json === 'string' ? JSON.parse(json) : json; } catch { return null; }
+}
+
+function generarDetalle(r) {
+    const antes  = parseSafe(r.valores_anteriores);
+    const despues = parseSafe(r.valores_nuevos);
+    const datos = despues || antes;
+    if (!datos) return '<span class="text-piedra-soft italic">Sin detalle</span>';
+
+    const tabla = r.tabla_afectada;
+    const op = String(r.operacion).toUpperCase();
+
+    if (tabla === 'Evaluacion') {
+        const cedula  = datos.cedula_estudiante || '—';
+        const materia = datos.siglas_materia || '—';
+        const momento = datos.numero_momento ? `M${datos.numero_momento}` : '';
+        const grado   = datos.codigo_grado || '';
+        const anio    = datos.codigo_ano_escolar || '';
+        let lineas = [`<b>Estudiante:</b> ${cedula} · <b>${materia}</b> · ${momento} · ${grado} (${anio})`];
+
+        if (op === 'I') {
+            lineas.push(`<span class="text-ok font-semibold">Nota registrada: ${datos.nota ?? '—'}</span>`);
+            if (datos.es_revision) lineas.push('<span class="badge badge-alerta">Marcada En Revisión</span>');
+        } else if (op === 'U' && antes) {
+            const notaAntes = antes.nota ?? '—';
+            const notaDespues = despues?.nota ?? '—';
+            if (String(notaAntes) !== String(notaDespues)) {
+                lineas.push(`Nota: <span class="text-rojo line-through">${notaAntes}</span> → <span class="text-ok font-semibold">${notaDespues}</span>`);
+            } else {
+                lineas.push(`Nota: <b>${notaDespues}</b> (sin cambio)`);
+            }
+            const revAntes = !!antes.es_revision;
+            const revDespues = !!despues?.es_revision;
+            if (revAntes !== revDespues) {
+                if (revDespues) {
+                    lineas.push('<span class="badge badge-alerta">✓ Marcada En Revisión</span>');
+                } else {
+                    lineas.push('<span class="badge badge-ok">✗ Revisión desmarcada</span>');
+                }
+            }
+        } else if (op === 'D') {
+            lineas.push(`<span class="text-rojo">Nota eliminada: ${antes?.nota ?? '—'}</span>`);
+        }
+        return lineas.join('<br>');
+    }
+
+    if (tabla === 'Materia_Pendiente') {
+        const cedula  = datos.cedula_estudiante || '—';
+        const materia = datos.siglas_materia || '—';
+        const grado   = datos.codigo_grado || '';
+        const anioOrig = datos.codigo_ano_escolar_origen || '';
+        let lineas = [`<b>Estudiante:</b> ${cedula} · <b>${materia}</b> · ${grado} (origen: ${anioOrig})`];
+
+        if (op === 'I') {
+            lineas.push(`<span class="text-ok font-semibold">Estado: ${datos.estado || '—'}</span>`);
+        } else if (op === 'U' && antes) {
+            if (antes.estado !== despues?.estado) {
+                lineas.push(`Estado: <span class="text-rojo">${antes.estado}</span> → <span class="text-ok font-semibold">${despues?.estado}</span>`);
+            }
+            if (antes.nota_final !== despues?.nota_final && despues?.nota_final != null) {
+                lineas.push(`Nota final: <b>${despues.nota_final}</b>`);
+            }
+        } else if (op === 'D') {
+            lineas.push(`<span class="text-rojo">Materia pendiente eliminada</span>`);
+        }
+        return lineas.join('<br>');
+    }
+
+    if (tabla === 'Seccion') {
+        const codigo = datos.codigo_seccion || '—';
+        const letra = datos.letra || '—';
+        const grado = datos.codigo_grado || '—';
+        const anio = datos.codigo_ano_escolar || '—';
+        let lineas = [`<b>Sección:</b> ${grado} - ${letra} (${anio})`];
+
+        if (op === 'I') lineas.push('<span class="text-ok font-semibold">Sección creada</span>');
+        else if (op === 'D') lineas.push('<span class="text-rojo">Sección eliminada</span>');
+        else if (op === 'U' && antes && despues) {
+            if (antes.letra !== despues.letra) lineas.push(`Letra: <span class="text-rojo">${antes.letra}</span> → <span class="text-ok">${despues.letra}</span>`);
+            if (antes.capacidad_maxima !== despues.capacidad_maxima) lineas.push(`Capacidad: ${antes.capacidad_maxima} → ${despues.capacidad_maxima}`);
+            if (antes.cedula_docente_guia !== despues.cedula_docente_guia) lineas.push(`Docente guía modificado`);
+        }
+        return lineas.join('<br>');
+    }
+
+    if (tabla === 'Usuario') {
+        const codigo = datos.codigo_usuario || '—';
+        const rol = datos.rol || '—';
+        let lineas = [`<b>Usuario:</b> ${codigo} (${rol})`];
+
+        if (op === 'I') lineas.push('<span class="text-ok font-semibold">Usuario registrado</span>');
+        else if (op === 'D') lineas.push('<span class="text-rojo">Usuario desactivado</span>');
+        else if (op === 'U' && antes && despues) {
+            if (antes.estado !== despues.estado) lineas.push(`Estado: <span class="text-rojo">${antes.estado}</span> → <span class="text-ok">${despues.estado}</span>`);
+            if (antes.rol !== despues.rol) lineas.push(`Rol: ${antes.rol} → ${despues.rol}`);
+            if (antes.clave_hash !== despues.clave_hash) lineas.push('Contraseña actualizada/restablecida');
+        }
+        return lineas.join('<br>');
+    }
+
+    if (tabla === 'Personal') {
+        const cedula = datos.cedula_personal || '—';
+        const nombres = datos.nombres || '';
+        const apellidos = datos.apellidos || '';
+        let lineas = [`<b>Personal:</b> ${nombres} ${apellidos} (CI: ${cedula})`];
+
+        if (op === 'I') lineas.push('<span class="text-ok font-semibold">Personal registrado</span>');
+        else if (op === 'D') lineas.push('<span class="text-rojo">Personal eliminado</span>');
+        else if (op === 'U' && antes && despues) {
+            if (antes.cargo !== despues.cargo) lineas.push(`Cargo: <span class="text-rojo">${antes.cargo}</span> → <span class="text-ok">${despues.cargo}</span>`);
+            if (antes.estado !== despues.estado) lineas.push(`Estado: <span class="text-rojo">${antes.estado}</span> → <span class="text-ok">${despues.estado}</span>`);
+            if (antes.telefono !== despues.telefono) lineas.push(`Teléfono actualizado`);
+            if (antes.correo !== despues.correo) lineas.push(`Correo actualizado`);
+        }
+        return lineas.join('<br>');
+    }
+
+    // Genérico: mostrar campos clave que cambiaron
+    if (op === 'U' && antes && despues) {
+        const cambios = [];
+        for (const key of Object.keys(despues)) {
+            if (key === '_ip' || key === 'fecha_modificacion') continue;
+            if (antes[key] !== undefined && String(antes[key]) !== String(despues[key])) {
+                cambios.push(`<b>${key}:</b> ${antes[key]} → ${despues[key]}`);
+            }
+        }
+        if (cambios.length) return cambios.join('<br>');
+        return `<span class="text-piedra-soft italic">Registro #${r.id_registro_afectado} actualizado (sin cambios visibles)</span>`;
+    }
+
+    return `<span class="text-piedra-soft">Registro #${r.id_registro_afectado}</span>`;
+}
+
 onMounted(cargar);
 </script>
 
@@ -124,9 +297,9 @@ onMounted(cargar);
                                 <th class="th">Fecha/Hora</th>
                                 <th class="th">Usuario</th>
                                 <th class="th">Operación</th>
-                                <th class="th">Tabla Afectada</th>
-                                <th class="th">ID Registro Afectado</th>
-                                <th class="th">Dirección IP</th>
+                                <th class="th">Módulo</th>
+                                <th class="th" style="min-width:300px">Detalle del Cambio</th>
+                                <th class="th">IP</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-borde">
@@ -146,9 +319,9 @@ onMounted(cargar);
                                         {{ formatearOperacion(r.operacion) }}
                                     </span>
                                 </td>
-                                <td class="td font-mono text-[12px] text-tinta font-semibold">{{ r.tabla_afectada }}</td>
-                                <td class="td font-mono text-[12px] text-piedra font-semibold bg-crema/30 rounded px-2 py-1 inline-block my-2">
-                                    {{ r.id_registro_afectado ?? r.id_registro ?? '—' }}
+                                <td class="td text-[12px] text-tinta font-semibold">{{ formatearTabla(r.tabla_afectada) }}</td>
+                                <td class="td text-[12px] text-piedra">
+                                    <div v-html="generarDetalle(r)"></div>
                                 </td>
                                 <td class="td font-mono text-[12px] text-piedra-soft">{{ r.ip_usuario ?? '127.0.0.1' }}</td>
                             </tr>
@@ -176,8 +349,8 @@ onMounted(cargar);
                                 <td colspan="6" class="text-center py-10 text-piedra text-[13px]">Sin registros de login.</td>
                             </tr>
                             <tr v-for="l in logins" :key="l.id_login" class="hover:bg-crema transition-colors">
-                                <td class="td font-mono text-[12px] text-piedra">{{ l.fecha }}</td>
-                                <td class="td font-mono text-[12px] text-piedra">{{ l.hora }}</td>
+                                <td class="td font-mono text-[12px] text-piedra">{{ formatearFecha(l.fecha) }}</td>
+                                <td class="td font-mono text-[12px] text-piedra">{{ formatearHora(l.hora) }}</td>
                                 <td class="td font-mono text-[12.5px] font-semibold text-tinta">
                                     {{ l.usuario?.codigo_usuario ?? ('ID:' + l.id_usuario) }}
                                     <span v-if="l.usuario?.personal" class="block font-sans text-[11px] font-normal text-piedra">
